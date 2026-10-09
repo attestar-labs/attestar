@@ -8,24 +8,13 @@ permissions:
   contents: read
 jobs:
   lint:
-    name: typecheck
+    name: lint
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
-      with:
-        version: 10.10.0
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
-        cache: pnpm
-    - name: Install workspace
-      run: pnpm install --no-frozen-lockfile
-    - name: Type-check every package
-      run: pnpm -r typecheck
+    - name: Guard against committed circuit artifacts
+      run: bash .github/scripts/check-artifacts.sh
   scripts:
     name: shellcheck
     runs-on: ubuntu-latest
