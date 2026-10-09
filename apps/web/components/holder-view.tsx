@@ -5,8 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 import { User, ShieldCheck, Wallet, SealCheck, Warning } from "@phosphor-icons/react";
 import { useWallet } from "@/lib/wallet";
 import { attestarReader } from "@/lib/contracts";
-import { inclusionForBrowser } from "@/lib/prover-browser";
-import { loadLedger, toHolders, matchByAddress, type LedgerEntry } from "@/lib/ledger";
+import { loadLedger, matchByAddress, type LedgerEntry } from "@/lib/ledger";
+import {
+  loadStoredProofAtIndex,
+  loadStoredProofForUser,
+  verifyStoredInclusion,
+} from "@/lib/inclusion-store";
 import { Panel, Eyebrow, Stat } from "@/components/panel";
 import { baseToUsdc, shortHash } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -21,7 +25,8 @@ interface InclusionView {
   ok: boolean;
   balance: string;
   rootHex: string;
-  matchesChain: boolean;
+  stale: boolean;
+  tampered: boolean;
 }
 
 export function HolderView() {
@@ -70,12 +75,30 @@ export function HolderView() {
     setError(null);
     setResult(null);
     try {
-      const inc = await inclusionForBrowser(toHolders(ledger), selected);
+      if (!published) {
+        setError("No attestation published yet. Publish one from the Issuer console first.");
+        return;
+      }
+      const entry = ledger[selected];
+      // Prefer the path the issuer persisted for this exact holder; fall back to
+      // the path stored at this ledger position.
+      const stored =
+        (entry ? loadStoredProofForUser(entry.userId) : null) ?? loadStoredProofAtIndex(selected);
+      if (!stored) {
+        setError(
+          "No inclusion path is stored on this device. The issuer must generate and publish an attestation first.",
+        );
+        return;
+      }
+      // Fold the STORED path and compare it with the on-chain root, instead of
+      // rebuilding a tree from the current ledger (which would always pass).
+      const res = await verifyStoredInclusion(stored, published.liabRootHex);
       setResult({
-        ok: inc.ok,
-        balance: inc.balance,
-        rootHex: inc.rootHex,
-        matchesChain: !!published && inc.rootHex === published.liabRootHex,
+        ok: res.ok,
+        balance: res.balance,
+        rootHex: res.rootHex,
+        stale: res.stale,
+        tampered: res.tampered,
       });
     } catch (e) {
       setError((e as Error).message);
@@ -181,22 +204,24 @@ export function HolderView() {
             <Panel
               className={cn(
                 "flex flex-col gap-3 px-5 py-5",
-                result.ok && result.matchesChain ? "border-proven/40" : "border-failed/40",
+                result.ok ? "border-proven/40" : "border-failed/40",
               )}
               aria-live="polite"
             >
               <div
                 className={cn(
                   "inline-flex items-center gap-2 font-mono text-sm",
-                  result.ok && result.matchesChain ? "text-proven" : "text-failed",
+                  result.ok ? "text-proven" : "text-failed",
                 )}
               >
-                {result.ok && result.matchesChain ? <SealCheck size={18} /> : <Warning size={18} />}
-                {result.ok && result.matchesChain
+                {result.ok ? <SealCheck size={18} /> : <Warning size={18} />}
+                {result.ok
                   ? `${who}'s balance is committed in the proof the chain verified.`
-                  : result.ok
-                    ? "Inclusion holds locally, but the tree does not match the on-chain root. Re-publish from the Issuer console."
-                    : "Inclusion check failed."}
+                  : result.stale
+                    ? "The stored tree is stale. It does not match the root the chain recorded; re-publish from the Issuer console."
+                    : result.tampered
+                      ? "The stored inclusion path failed verification; it may have been tampered with."
+                      : "Inclusion check failed."}
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Stat
@@ -205,12 +230,12 @@ export function HolderView() {
                 />
                 <Stat
                   label="Root matches on-chain"
-                  value={result.matchesChain ? "Yes" : "No"}
-                  tone={result.matchesChain ? "proven" : "failed"}
+                  value={result.ok ? "Yes" : "No"}
+                  tone={result.ok ? "proven" : "failed"}
                 />
               </div>
               <p className="font-mono text-[11px] text-slate">
-                computed {shortHash(result.rootHex, 8)} · on-chain {shortHash(published?.liabRootHex, 8)}
+                stored {shortHash(result.rootHex, 8)} · on-chain {shortHash(published?.liabRootHex, 8)}
               </p>
             </Panel>
           )}
