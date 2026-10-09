@@ -693,4 +693,17 @@ fn groth16_rejects_wrong_public_input_count() {
         let ok = env.as_contract(&id, || groth16::verify(&env, &vk, &proof, &pubs));
         assert!(!ok, "a public-input count of {n} must be rejected");
     }
+#[test]
+fn fixtures_header_names_its_generator() {
+    // fixtures.rs is consumed by this module; encode_p.mjs owns it. The legacy
+    // scripts/encode.mjs must not overwrite it with its incompatible schema.
+    const FIXTURES: &str = include_str!("fixtures.rs");
+    assert!(
+        FIXTURES.contains("encode_p.mjs"),
+        "fixtures.rs must record that encode_p.mjs generated it"
+    );
+    assert!(
+        !FIXTURES.contains("scripts/encode.mjs"),
+        "fixtures.rs must not be the legacy encode.mjs fixture set"
+    );
 }
