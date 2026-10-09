@@ -26,8 +26,10 @@ export * as contract from "@stellar/stellar-sdk/contract";
 export * as rpc from "@stellar/stellar-sdk/rpc";
 
 if (typeof window !== "undefined") {
-  //@ts-ignore Buffer exists
-  window.Buffer = window.Buffer || Buffer;
+  // The Stellar SDK relies on a global Buffer in the browser. Attach it through
+  // an explicit window type instead of silencing the compiler suppression.
+  const globalWithBuffer = window as unknown as { Buffer?: typeof Buffer };
+  globalWithBuffer.Buffer = globalWithBuffer.Buffer ?? Buffer;
 }
 
 
