@@ -262,7 +262,7 @@ See [`docs/DESIGN.md`](docs/DESIGN.md) for the original design notes and the res
 
 ## License
 
-MIT
+Released under the [MIT License](LICENSE).
 
 ---
 
