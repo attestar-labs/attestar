@@ -116,6 +116,13 @@ impl AttestarContract {
         Ok(())
     }
 
+    // Whether a verifying key is stored on-chain. Lets the web console drive the
+    // one-time setup panel from the contract's real state instead of a
+    // browser-localStorage flag, which can be stale in either direction.
+    pub fn verifier_is_set(env: Env) -> bool {
+        env.storage().instance().has(&DataKey::Vk)
+    }
+
     // Records a private proof of solvency for `epoch`.
     //
     // `liab_root` and `res_root` are the Merkle-sum commitments to the (private)

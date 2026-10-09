@@ -86,6 +86,11 @@ export interface Client {
   latest: (options?: MethodOptions) => Promise<AssembledTransaction<Option<Attestation>>>
 
   /**
+   * Construct and simulate a verifier_is_set transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
+   */
+  verifier_is_set: (options?: MethodOptions) => Promise<AssembledTransaction<boolean>>
+
+  /**
    * Construct and simulate a initialize transaction. Returns an `AssembledTransaction` object which will have a `result` field containing the result of the simulation. If this transaction changes contract state, you will need to call `signAndSend()` on the returned object.
    */
   initialize: ({admin, reserve_token, reserve_holder, attestor}: {admin: string, reserve_token: string, reserve_holder: string, attestor: Buffer}, options?: MethodOptions) => Promise<AssembledTransaction<Result<void>>>
@@ -176,12 +181,14 @@ export class Client extends ContractClient {
         "AAAAAAAAAHBDbG9zZXMgdGhlIG92ZXJsYXAgd2luZG93IGVhcmx5LCByZXRpcmluZyB0aGUgcHJldmlvdXMgYXR0ZXN0b3Igc28gb25seQp0aGUgY3VycmVudCBrZXkgaXMgYWNjZXB0ZWQgZnJvbSBub3cgb24uAAAAFGVuZF9hdHRlc3Rvcl9vdmVybGFwAAAAAQAAAAAAAAAGY2FsbGVyAAAAAAATAAAAAQAAA+kAAAACAAAAAw==",
         "AAAAAAAAARFTYW1lIGFzIFtgU2VsZjo6c3VibWl0X2F0dGVzdGF0aW9uYF0sIGJ1dCB0aGUgY3VzdG9kaWFuIHN0YXRlcyB3aGljaCBvZgp0aGUgcmVnaXN0ZXJlZCBhdHRlc3RvciBrZXlzIHByb2R1Y2VkIGByZXNfc2lnYC4gVGhpcyBpcyB3aGF0IG1ha2VzIGEKcm90YXRpb24gd2l0aCBhbiBvdmVybGFwIHdpbmRvdyB1c2FibGU6IHdoaWxlIHRoZSB3aW5kb3cgaXMgb3BlbiwgYQpzaWduYXR1cmUgZnJvbSBlaXRoZXIgdGhlIGN1cnJlbnQgb3IgdGhlIHByZXZpb3VzIGtleSB2ZXJpZmllcy4AAAAAAAAZc3VibWl0X2F0dGVzdGF0aW9uX3NpZ25lZAAAAAAAAAcAAAAAAAAABWVwb2NoAAAAAAAABgAAAAAAAAAFcHJvb2YAAAAAAAfQAAAABVByb29mAAAAAAAAAAAAAAlsaWFiX3Jvb3QAAAAAAAPuAAAAIAAAAAAAAAAIcmVzX3Jvb3QAAAPuAAAAIAAAAAAAAAAHc29sdmVudAAAAAABAAAAAAAAAApyZXNfc2lnbmVyAAAAAAPuAAAAIAAAAAAAAAAHcmVzX3NpZwAAAAPuAAAAQAAAAAEAAAPpAAAH0AAAAAtBdHRlc3RhdGlvbgAAAAAD",
         "AAAAAQAAAAAAAAAAAAAABVByb29mAAAAAAAAAwAAAAAAAAABYQAAAAAAA+4AAABAAAAAAAAAAAFiAAAAAAAD7gAAAIAAAAAAAAAAAWMAAAAAAAPuAAAAQA==",
-        "AAAAAQAAAAAAAAAAAAAADFZlcmlmeWluZ0tleQAAAAUAAAAAAAAABWFscGhhAAAAAAAD7gAAAEAAAAAAAAAABGJldGEAAAPuAAAAgAAAAAAAAAAFZGVsdGEAAAAAAAPuAAAAgAAAAAAAAAAFZ2FtbWEAAAAAAAPuAAAAgAAAAAAAAAACaWMAAAAAA+oAAAPuAAAAQA==" ]),
+        "AAAAAQAAAAAAAAAAAAAADFZlcmlmeWluZ0tleQAAAAUAAAAAAAAABWFscGhhAAAAAAAD7gAAAEAAAAAAAAAABGJldGEAAAPuAAAAgAAAAAAAAAAFZGVsdGEAAAAAAAPuAAAAgAAAAAAAAAAFZ2FtbWEAAAAAAAPuAAAAgAAAAAAAAAACaWMAAAAAA+oAAAPuAAAAQA==",
+        "AAAAAAAAAAAAAAAPdmVyaWZpZXJfaXNfc2V0AAAAAAAAAAABAAAAAQ==" ]),
       options
     )
   }
   public readonly fromJSON = {
     latest: this.txFromJSON<Option<Attestation>>,
+        verifier_is_set: this.txFromJSON<boolean>,
         initialize: this.txFromJSON<Result<void>>,
         is_solvent: this.txFromJSON<boolean>,
         set_verifier: this.txFromJSON<Result<void>>,
