@@ -614,4 +614,83 @@ fn legacy_record_without_version_tag_is_still_readable() {
     assert_eq!(att.onchain_reserves, fixtures::S_ONCHAIN);
     assert!(att.solvent);
     assert!(h.client.is_solvent(&legacy_epoch));
+fn spub(env: &Env, i: usize) -> BytesN<32> {
+    bytesn(env, &fixtures::S_PUB[i])
+}
+
+fn zero_proof(env: &Env) -> Proof {
+    Proof {
+        a: bytesn(env, &[0u8; 64]),
+        b: bytesn(env, &[0u8; 128]),
+        c: bytesn(env, &[0u8; 64]),
+    }
+}
+
+fn zero_vk(env: &Env, ic_len: u32) -> VerifyingKey {
+    let mut ic = Vec::new(env);
+    for _ in 0..ic_len {
+        ic.push_back(bytesn(env, &[0u8; 64]));
+    }
+    VerifyingKey {
+        alpha: bytesn(env, &[0u8; 64]),
+        beta: bytesn(env, &[0u8; 128]),
+        gamma: bytesn(env, &[0u8; 128]),
+        delta: bytesn(env, &[0u8; 128]),
+        ic,
+    }
+}
+
+#[test]
+fn groth16_rejects_zero_proof() {
+    let env = Env::default();
+    let id = env.register(AttestarContract, ());
+    let vk = make_vk(&env);
+    let proof = zero_proof(&env);
+    let pubs = vec![
+        &env,
+        spub(&env, 0),
+        spub(&env, 1),
+        spub(&env, 2),
+        spub(&env, 3),
+    ];
+    let ok = env.as_contract(&id, || groth16::verify(&env, &vk, &proof, &pubs));
+    assert!(!ok, "an all-zero proof must be rejected, not accepted");
+}
+
+#[test]
+fn groth16_rejects_mismatched_ic_length() {
+    let env = Env::default();
+    let id = env.register(AttestarContract, ());
+    let proof = solvent_proof(&env);
+    // (ic_len, public-input count) pairs where ic_len != count + 1.
+    let cases: [(u32, usize); 7] = [(5, 0), (5, 3), (5, 5), (4, 4), (2, 4), (1, 4), (0, 4)];
+    for (ic_len, n) in cases {
+        let vk = zero_vk(&env, ic_len);
+        let mut pubs: Vec<BytesN<32>> = Vec::new(&env);
+        for i in 0..n {
+            pubs.push_back(spub(&env, i % 4));
+        }
+        let ok = env.as_contract(&id, || groth16::verify(&env, &vk, &proof, &pubs));
+        assert!(
+            !ok,
+            "ic_len {ic_len} with {n} public inputs must be rejected"
+        );
+    }
+}
+
+#[test]
+fn groth16_rejects_wrong_public_input_count() {
+    let env = Env::default();
+    let id = env.register(AttestarContract, ());
+    let vk = make_vk(&env);
+    let proof = solvent_proof(&env);
+    // vk.ic has five points, so exactly four public inputs are expected.
+    for n in [0usize, 3, 5] {
+        let mut pubs: Vec<BytesN<32>> = Vec::new(&env);
+        for i in 0..n {
+            pubs.push_back(spub(&env, i % 4));
+        }
+        let ok = env.as_contract(&id, || groth16::verify(&env, &vk, &proof, &pubs));
+        assert!(!ok, "a public-input count of {n} must be rejected");
+    }
 }
