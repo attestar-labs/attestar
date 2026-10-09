@@ -56,6 +56,7 @@ fn res_signature(sk: &SigningKey, epoch: u64, res_root: &[u8; 32]) -> [u8; 64] {
 
 struct Harness<'a> {
     env: Env,
+    cid: Address,
     client: AttestarContractClient<'a>,
     token_admin: StellarAssetClient<'a>,
     reserve_holder: Address,
@@ -84,6 +85,7 @@ fn deploy(env: &Env, with_verifier: bool) -> Harness<'_> {
 
     Harness {
         env: env.clone(),
+        cid,
         client,
         token_admin,
         reserve_holder,
@@ -245,6 +247,36 @@ fn rejects_when_verifier_not_set() {
             .try_submit_attestation(&1, &proof, &liab, &res, &fixtures::S_SOLVENT, &sig);
 
     assert_eq!(result, Err(Ok(Error::VerifierNotSet)));
+}
+
+#[test]
+fn prunes_epoch_history_beyond_the_window() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+    h.token_admin.mint(&h.reserve_holder, &fixtures::S_ONCHAIN);
+
+    let window = MAX_EPOCHS as u64;
+    // Publish one more epoch than the retained window.
+    for epoch in 1..=window + 1 {
+        submit_solvent(&h, epoch);
+    }
+
+    // The epoch index is capped at the documented window...
+    let epochs: Vec<u64> = h.env.as_contract(&h.cid, || {
+        h.env.storage().persistent().get(&DataKey::Epochs).unwrap()
+    });
+    assert_eq!(epochs.len(), MAX_EPOCHS);
+
+    // ...the oldest record and its index slot have been pruned...
+    assert_eq!(h.client.get_attestation(&1), None);
+    assert!(!h.client.is_solvent(&1));
+
+    // ...while every epoch still inside the window answers correctly.
+    assert!(h.client.get_attestation(&2).is_some());
+    let newest = h.client.get_attestation(&(window + 1)).unwrap();
+    assert_eq!(newest.epoch, window + 1);
+    assert!(h.client.is_solvent(&(window + 1)));
+    assert_eq!(h.client.latest().unwrap().epoch, window + 1);
 }
 
 #[test]
