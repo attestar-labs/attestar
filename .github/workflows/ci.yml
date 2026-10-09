@@ -87,6 +87,8 @@ jobs:
     - name: Build SDK and client bindings
       run: pnpm --filter @attestar/sdk --filter attestar-client --filter usdc-client
         build
+    - name: Test web
+      run: pnpm --filter @attestar/web test
     - name: Build web
       run: pnpm --filter @attestar/web build
   contracts:
@@ -105,3 +107,6 @@ jobs:
     - name: Test contracts
       working-directory: packages/contracts
       run: cargo test --workspace
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
