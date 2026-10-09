@@ -55,14 +55,36 @@ export function toHolders(entries: LedgerEntry[]): Holder[] {
     .map((h) => ({ userId: BigInt(h.userId), balance: usdcToBase(h.balance) }));
 }
 
-export function sumBase(entries: LedgerEntry[]): bigint {
-  return entries.reduce((acc, h) => {
+export interface RejectedRow {
+  index: number;
+  label: string;
+  balance: string;
+  reason: string;
+}
+
+export interface SumResult {
+  total: bigint;
+  rejected: RejectedRow[];
+}
+
+// Totals the ledger while surfacing every row whose balance cannot be parsed,
+// so a typo is reported to the caller instead of being silently dropped from the
+// total the proof commits to.
+export function sumBaseDetailed(entries: LedgerEntry[]): SumResult {
+  let total = 0n;
+  const rejected: RejectedRow[] = [];
+  entries.forEach((h, index) => {
     try {
-      return acc + usdcToBase(h.balance);
-    } catch {
-      return acc;
+      total += usdcToBase(h.balance);
+    } catch (e) {
+      rejected.push({ index, label: h.label, balance: h.balance, reason: (e as Error).message });
     }
-  }, 0n);
+  });
+  return { total, rejected };
+}
+
+export function sumBase(entries: LedgerEntry[]): bigint {
+  return sumBaseDetailed(entries).total;
 }
 
 export function matchByAddress(entries: LedgerEntry[], address: string): number {
