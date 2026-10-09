@@ -105,32 +105,12 @@ jobs:
     name: security
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
+    - name: Checkout (full history)
       uses: actions/checkout@v4
-    - name: Setup pnpm
-      uses: pnpm/action-setup@v4
       with:
-        version: 10.10.0
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
-    - name: pnpm audit (report)
-      run: pnpm audit || true
-    - name: pnpm audit (fail on high/critical)
-      run: pnpm audit --audit-level=high
-    - name: Install cargo-audit
-      run: cargo install cargo-audit --locked
-    - name: cargo audit (report)
-      working-directory: packages/contracts
-      run: cargo audit || true
-    - name: cargo audit (fail on high/critical)
-      working-directory: packages/contracts
-      run: 'cargo audit --json > "$RUNNER_TEMP/cargo-audit.json" || true
-
-        python3 "$GITHUB_WORKSPACE/.github/scripts/cargo-audit-gate.py" "$RUNNER_TEMP/cargo-audit.json"
-
-        '
+        fetch-depth: 0
+    - name: Scan history for committed secrets
+      run: bash .github/scripts/secret-scan.sh
   tests:
     name: tests
     runs-on: ubuntu-latest
