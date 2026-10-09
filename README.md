@@ -9,7 +9,7 @@ An issuer proves on-chain that its reserves cover every holder balance, without 
 [![Stellar testnet](https://img.shields.io/badge/Stellar-testnet-000?logo=stellar)](https://stellar.expert/explorer/testnet/contract/CD36EVFKGZH23JLRQMJZPG7XKPNO6ZVK67GHN2RQJG5VM6CVYTE2GRDH)
 [![Soroban](https://img.shields.io/badge/Soroban-BN254%20host%20fns-5fd4c4)](https://developers.stellar.org/docs/build/apps/zk)
 [![Groth16](https://img.shields.io/badge/Groth16-BN254-c9a45c)](https://docs.circom.io/)
-[![Circom](https://img.shields.io/badge/Circom-2.2-blue)](https://docs.circom.io/)
+[![Circom](https://img.shields.io/badge/Circom-2.1.6-blue)](https://docs.circom.io/)
 [![Reserve asset](https://img.shields.io/badge/Reserves-real%20Circle%20USDC-2775CA)](https://stellar.expert/explorer/testnet/contract/CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA)
 
 </div>
@@ -199,7 +199,7 @@ attestar/
 
 | Layer | What |
 |---|---|
-| **ZK circuit** | Circom 2.2, Groth16 over BN254, Poseidon hashing, `snarkjs` trusted setup |
+| **ZK circuit** | Circom (`pragma circom 2.1.6`; the committed artifacts were built with circom 2.2.3), Groth16 over BN254, Poseidon hashing, `snarkjs` trusted setup |
 | **Proving** | `snarkjs` running client-side (WASM) in the browser; balances never leave the device |
 | **On-chain verifier** | Soroban (`soroban-sdk` 27), Stellar **BN254 host functions** (Protocol 25 "X-Ray") for MSM + pairing check |
 | **Reserve asset** | Real Circle USDC on Stellar testnet via its Stellar Asset Contract |
@@ -219,7 +219,7 @@ The Attestar contract surface: `initialize`, `set_verifier`, `submit_attestation
 
 ## Getting started
 
-**Prerequisites:** Node 20+, pnpm 10 (`corepack enable && corepack prepare pnpm@10.10.0 --activate`), and for rebuilding the ZK + contract: Rust, the `stellar` CLI, and `circom` 2.2 (on Windows these run in WSL). A **Freighter** wallet on **testnet** with a USDC trustline and a little testnet USDC (from [faucet.circle.com](https://faucet.circle.com)).
+**Prerequisites:** Node 20+, pnpm 10 (`corepack enable && corepack prepare pnpm@10.10.0 --activate`), and for rebuilding the ZK + contract: Rust, the `stellar` CLI, and `circom` 2.1.6, the version every `.circom` file declares in its `pragma` (the committed artifacts were produced with the 2.2.3 toolchain); on Windows these run in WSL. A **Freighter** wallet on **testnet** with a USDC trustline and a little testnet USDC (from [faucet.circle.com](https://faucet.circle.com)).
 
 Run the web app against the live testnet deployment:
 
