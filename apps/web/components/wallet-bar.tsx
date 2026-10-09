@@ -54,8 +54,10 @@ export function WalletBar({
           </div>
         ) : (
           <button
+            type="button"
             onClick={() => connect(role ?? "issuer")}
             disabled={connecting}
+            aria-label={connecting ? "Connecting wallet" : "Connect Freighter wallet"}
             className={cn(
               "inline-flex items-center gap-2 rounded-full bg-bone px-4 py-2 text-sm font-medium text-neutral-950 transition hover:bg-white disabled:opacity-50",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brass/60",

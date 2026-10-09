@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Buildings, User, Scales, ArrowRight } from "@phosphor-icons/react";
 import { Eyebrow } from "@/components/panel";
 import type { Role } from "@/lib/wallet";
@@ -35,6 +36,22 @@ const ROLES: {
 ];
 
 export function RolePicker({ onPick }: { onPick: (role: Role) => void }) {
+  const [focusIndex, setFocusIndex] = useState(0);
+  const buttons = useRef<(HTMLButtonElement | null)[]>([]);
+
+  function onKeyDown(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = ROLES.length - 1;
+    let next = index;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") next = index === last ? 0 : index + 1;
+    else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = index === 0 ? last : index - 1;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = last;
+    else return;
+    event.preventDefault();
+    setFocusIndex(next);
+    buttons.current[next]?.focus();
+  }
+
   return (
     <div className="pb-24">
       <section className="grid items-center gap-10 py-16 md:py-24">
@@ -55,10 +72,22 @@ export function RolePicker({ onPick }: { onPick: (role: Role) => void }) {
         </div>
       </section>
 
-      <section className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3">
-        {ROLES.map((r) => (
+      <section
+        role="radiogroup"
+        aria-label="Pick a role to step into the system"
+        className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line md:grid-cols-3"
+      >
+        {ROLES.map((r, i) => (
           <button
             key={r.role}
+            ref={(el) => {
+              buttons.current[i] = el;
+            }}
+            type="button"
+            role="radio"
+            aria-checked={false}
+            tabIndex={i === focusIndex ? 0 : -1}
+            onKeyDown={(event) => onKeyDown(event, i)}
             onClick={() => onPick(r.role)}
             className="group flex flex-col gap-4 bg-ink p-7 text-left transition hover:bg-ink-soft focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brass/50"
           >
