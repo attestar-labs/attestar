@@ -4,28 +4,37 @@
 > top to bottom to reload the complete picture: what we are building, why, the architecture,
 > the demo, and the build plan.
 
-Name: **Attestar** (attestation + the Stellar star motif). Project folder:
-`D:\Programming\hacks\attestar`. Tagline: "Continuous, provable solvency."
+Name: **Attestar** (attestation + the Stellar star motif). Tagline: "Continuous, provable solvency."
 
 Last updated: 2026-06-20
 Status: ZK pipeline working end to end. SDK-circuit lockstep proven; Groth16 proof verified
 on-chain on Stellar testnet (real tx) and tampered input rejected. Remaining: end-to-end
 submit_attestation flow with a reserve token, the web app, and the demo video.
 
-### Repo state (2026-06-20, scaffold)
-- `packages/circuits`: Circom `SolvencyTree(DEPTH, BITS)` (Merkle-sum tree, Poseidon, per-leaf
-  64-bit range checks), main at depth 10, test at depth 2, build + ptau scripts.
-- `packages/sdk`: TS `MerkleSumTree` (build / proofFor / verifyProof) and `buildCircuitInput`,
-  using circomlibjs Poseidon. Must stay byte-identical to the circuit hashing scheme.
-- `packages/contracts`: Soroban `AttestarContract` (init, set_verifier, submit_attestation,
-  get_attestation, latest, is_solvent). Implemented: registry, on-chain reserve read, ed25519
-  fiat-attestation, solvency compare, events. Pending: `groth16::verify` (traps until wired).
-- `apps/web`: minimal Next.js 15 landing shell (Tailwind v4), role cards for Issuer/Holder/Auditor.
-- Toolchain: WSL Ubuntu install of rustup + circom (from git) + stellar-cli running in background;
-  snarkjs is a local devDependency of `packages/circuits` (no global/sudo needed). Node/pnpm on
-  Windows side. Install script at `~/install_attestar.sh` in WSL, log at
-  `~/attestar-toolchain-install.log`.
-- GitHub remote: https://github.com/wildanrhmn/attestar.git (branch master).
+### Repo state
+
+The repository is a pnpm workspace; the members are exactly those listed in
+`pnpm-workspace.yaml`:
+
+- `packages/circuits`: Circom circuits. The production circuit is the two-tree `PrivateSolvency`
+  template (`circuits/psolvency_demo.circom`); `circuits/solvency*.circom` are the legacy
+  single-tree circuits, plus build + ptau + encoding scripts.
+- `packages/sdk`: TS `MerkleSumTree` (build / proofFor / verifyProof), `buildPrivateInput`, and
+  Groth16 encoding, using circomlibjs Poseidon. Must stay byte-identical to the circuit hashing
+  scheme.
+- `packages/contracts`: Soroban `AttestarContract` (`initialize`, `set_verifier`,
+  `submit_attestation`, `get_attestation`, `latest`, `is_solvent`, `verify_proof`): registry,
+  on-chain reserve read, ed25519 reserve attestation, Groth16 verification, solvency comparison,
+  events.
+- `packages/attestar-client`: generated TypeScript bindings for the Attestar contract.
+- `packages/usdc-client`: generated TypeScript bindings for the USDC token (Stellar Asset
+  Contract) interface.
+- `apps/web`: Next.js 15 app (Tailwind v4): role picker plus issuer, holder, and regulator views,
+  browser-side Groth16 proving, Freighter signing, and AES-GCM selective disclosure.
+- Toolchain: a Unix-like environment (WSL on Windows) with rustup, circom, and stellar-cli;
+  snarkjs is a local devDependency of `packages/circuits` (no global install). Machine-specific
+  Windows/WSL setup is confined to Appendix A.
+- GitHub remote: https://github.com/attestar-labs/attestar.git (branch main).
 
 ### Progress log
 - 2026-06-20 (Day 1-2 done): toolchain installed in WSL (rustc 1.96, circom 2.2.3,
@@ -51,9 +60,7 @@ submit_attestation flow with a reserve token, the web app, and the demo video.
     https://stellar.expert/explorer/testnet/tx/94573ab6e3c3cf8768c6553fc8b819ead12fe13170e2168b86d56426c9ab4c58),
     tampered input returns false. Reproduce: `bash packages/circuits/scripts/verify_testnet.sh`.
   - Added stateless `verify_proof(vk, proof, public_inputs)` contract fn (reusable verifier).
-- WSL shell gotcha: bare `VAR=...` assignments and `$(...)` capture get mangled through
-  `wsl bash -lc '...'` from the tool layer. Put logic in a script FILE on /mnt/d and run that.
-  Also WSL `/tmp` is wiped on distro restart between calls; write intermediate files under /mnt/d.
+- WSL shell gotcha: moved to Appendix A (Windows / WSL notes).
 
 - 2026-06-20 (full attestation flow DONE): end-to-end `submit_attestation` tested with a real
   Stellar Asset Contract reserve token (`register_stellar_asset_contract_v2`) and a real ed25519
@@ -75,7 +82,7 @@ submit_attestation flow with a reserve token, the web app, and the demo video.
   Design: Tailwind v4 @theme (ink/bone/brass/proven/failed), Fraunces + Geist + Geist Mono. The
   signature element is the live "Solvency Seal" (brass ring, flips green SOLVENT / red INSOLVENT).
   Architecture: server actions do issuer-side proving (snarkjs over the depth-4 solvency_demo
-  circuit) + encode + submit via the generated attestar-client/mock-token-client bindings, signed
+  circuit) + encode + submit via the generated attestar-client/usdc-client bindings, signed
   with the issuer key (basicNodeSigner). Reviewed against the Web Interface Guidelines (focus-visible,
   aria-live, theme-color, numeric inputs). Verified the full beat in-browser: publish -> SOLVENT,
   drain -> reserves drop, publish -> INSOLVENT (real testnet txs), plus holder inclusion check.
@@ -330,3 +337,21 @@ not affect us.
 - Ecosystem DB (novelty scan): https://github.com/lumenloop/stellar-ecosystem-db
 - GENIUS/MiCA 2026: https://www.kucoin.com/blog/en-stablecoin-regulation-updates-2026-genius-act-mica-enforcement-global-compliance-trends
 - Proof-of-reserves background (Merkle sum, ZK): https://financefeeds.com/proof-of-reserves-crypto-exchanges/
+
+## Appendix A: Windows / WSL notes
+
+These notes are specific to the original Windows + WSL development machine and are kept only to
+reproduce that setup. Nothing else in this document depends on them.
+
+- WSL Ubuntu install of rustup + circom (from git) + stellar-cli running in the background;
+  snarkjs is a local devDependency of `packages/circuits` (no global/sudo needed). Node/pnpm run
+  on the Windows side.
+- Toolchain install script at `~/install_attestar.sh` in WSL, log at
+  `~/attestar-toolchain-install.log`.
+- The repository was checked out at `/mnt/d/Programming/hacks/attestar` (the Windows path
+  `D:\Programming\hacks\attestar`); `packages/contracts/scripts/setup_web_demo.sh` and
+  `packages/contracts/scripts/demo_testnet.sh` still set `ABS` to that mount point.
+- WSL shell gotcha: bare `VAR=...` assignments and `$(...)` capture get mangled through
+  `wsl bash -lc '...'` from the tool layer. Put logic in a script FILE on `/mnt/d` and run that.
+  Also WSL `/tmp` is wiped on distro restart between calls; write intermediate files under
+  `/mnt/d`.
