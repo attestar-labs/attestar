@@ -396,9 +396,16 @@ impl AttestarContract {
     }
 
     fn reserves(env: &Env) -> i128 {
-        let reserve_token: Address = env.storage().instance().get(&DataKey::ReserveToken).unwrap();
-        let reserve_holder: Address =
-            env.storage().instance().get(&DataKey::ReserveHolder).unwrap();
+        let reserve_token: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::ReserveToken)
+            .unwrap();
+        let reserve_holder: Address = env
+            .storage()
+            .instance()
+            .get(&DataKey::ReserveHolder)
+            .unwrap();
         token::TokenClient::new(env, &reserve_token).balance(&reserve_holder)
     }
 
