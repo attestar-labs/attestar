@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # Fails when pnpm-lock.yaml and the workspace manifests drift, so CI can
+      # never silently resolve a dependency tree the lockfile does not record.
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: Build workspace libraries
+        run: |
+          pnpm build:sdk
+          pnpm --filter attestar-client --filter usdc-client build
+
+      - name: Build web app
+        run: pnpm --filter @attestar/web build
