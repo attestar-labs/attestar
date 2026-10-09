@@ -104,6 +104,12 @@ The repository is a pnpm workspace; the members are exactly those listed in
   Architecture: server actions do issuer-side proving (snarkjs over the depth-4 solvency_demo
   circuit) + encode + submit via the generated attestar-client/usdc-client bindings, signed
   with the issuer key (basicNodeSigner). Reviewed against the Web Interface Guidelines (focus-visible,
+  Architecture: the issuer console (apps/web/components/issuer-view.tsx) proves in the browser
+  (snarkjs.groth16.fullProve in apps/web/lib/prover-browser.ts, over the depth-4 psolvency_demo
+  circuit) + encode + submit via the generated attestar-client/mock-token-client bindings, signed
+  by the issuer's Freighter wallet through Stellar Wallets Kit (apps/web/lib/wallet.tsx). The
+  standalone Node prover apps/web/scripts/test_client.mjs is a scripted test tool, not the
+  architecture. Reviewed against the Web Interface Guidelines (focus-visible,
   aria-live, theme-color, numeric inputs). Verified the full beat in-browser: publish -> SOLVENT,
   drain -> reserves drop, publish -> INSOLVENT (real testnet txs), plus holder inclusion check.
   - Stable web demo deployment (from `setup_web_demo.sh`, depth-4 vkey set):
@@ -229,8 +235,10 @@ real problem rather than overclaiming a magic solution.
   2026). We build on testnet, target the same protocol.
 - **Frontend: Next.js** (issuer dashboard, holder inclusion check, auditor view). Plays to our
   existing strengths.
-- **Off-chain prover:** node + snarkjs, run server-side for the issuer (large tree, heavy proof).
-  Holder inclusion check is a cheap Merkle path verified client-side.
+- **Off-chain prover:** snarkjs Groth16 running in the browser (`apps/web/lib/prover-browser.ts`,
+  WASM), so the issuer's private balances never leave the device; the issuer signs and submits with
+  Freighter through Stellar Wallets Kit (`apps/web/lib/wallet.tsx`). Holder inclusion check is a
+  cheap Merkle path verified client-side.
 
 Key references:
 - ZK on Stellar docs: https://developers.stellar.org/docs/build/apps/zk
@@ -330,8 +338,9 @@ not affect us.
 
 - **CPU instruction limits:** Groth16 verification fits comfortably post-P25. Low risk. Measure
   on Day 1 anyway.
-- **Tree depth vs proving time:** larger trees mean heavier proving. Run proving server-side for
-  the issuer; keep demo depth modest (10 to 16). Holder inclusion is a cheap Merkle path.
+- **Tree depth vs proving time:** larger trees mean heavier proving. Proving runs client-side in
+  the browser (`apps/web/lib/prover-browser.ts`); keep demo depth modest (the shipped demo is
+  depth 4 liabilities / depth 3 reserves). Holder inclusion is a cheap Merkle path.
 - **Negative-balance attack:** mitigated by mandatory per-leaf range proofs (section 6b.2). Do not
   skip these.
 - **Byte-encoding plumbing (snarkjs proof -> Soroban):** the recurring integration tax. Lean on
