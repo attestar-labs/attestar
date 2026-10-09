@@ -8,7 +8,6 @@
   --color-bone-dim: #9b978c;
   --color-slate: #6b6f76;
   --color-brass: #c8a86a;
-  --color-brass-dim: #87723f;
   --color-proven: #46c68a;
   --color-failed: #e5564b;
   --color-line: rgba(236, 231, 218, 0.09);
@@ -44,15 +43,6 @@ body {
   }
 }
 
-@keyframes seal-draw {
-  from {
-    stroke-dashoffset: var(--dash, 1000);
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
 @keyframes rise {
   from {
     opacity: 0;
@@ -69,10 +59,6 @@ body {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
   }
-}
-
-.hairline {
-  border-color: var(--color-line);
 }
 
 .rise {
