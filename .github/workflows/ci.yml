@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # Report every npm advisory, low severity included, without failing here.
+      - name: pnpm audit (report)
+        run: pnpm audit || true
+
+      # Gate: high and critical npm advisories fail the job.
+      - name: pnpm audit (fail on high/critical)
+        run: pnpm audit --audit-level=high
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      # Report every RustSec advisory, then gate only on high/critical severity
+      # so a low-severity advisory is visible without failing the build.
+      - name: cargo audit (report)
+        working-directory: packages/contracts
+        run: cargo audit || true
+
+      - name: cargo audit (fail on high/critical)
+        working-directory: packages/contracts
+        run: |
+          cargo audit --json > "$RUNNER_TEMP/cargo-audit.json" || true
+          python3 "$GITHUB_WORKSPACE/.github/scripts/cargo-audit-gate.py" "$RUNNER_TEMP/cargo-audit.json"
