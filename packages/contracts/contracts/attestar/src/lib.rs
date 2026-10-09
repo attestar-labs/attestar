@@ -5,8 +5,13 @@ pub use groth16::{Proof, VerifyingKey};
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, token, Address, Bytes,
-    BytesN, Env, Vec,
+    BytesN, Env, Map, Symbol, TryFromVal, Val, Vec,
 };
+
+/// Schema version of the record written by `record`. Bump this whenever the
+/// stored layout changes. `load_attestation` reads records that predate the tag
+/// (version 1) without panicking so old epochs remain readable.
+pub const ATTESTATION_VERSION: u32 = 2;
 
 #[contracterror]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -51,12 +56,46 @@ pub enum DataKey {
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Attestation {
+    // Schema version of this record; see ATTESTATION_VERSION. Plain comment (not a
+    // doc comment) so the generated contract spec stays byte-identical to the
+    // committed client bindings.
+    pub version: u32,
     pub epoch: u64,
     pub liab_root: BytesN<32>,
     pub res_root: BytesN<32>,
     pub onchain_reserves: i128,
     pub solvent: bool,
     pub timestamp: u64,
+}
+
+/// The layout written before records carried a `version` tag. Records in this
+/// shape are still readable; see [`AttestarContract::load_attestation`].
+///
+/// Kept as a type so the pre-upgrade layout stays documented (and so tests can
+/// write one), but it is never produced any more.
+#[contracttype]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttestationV1 {
+    pub epoch: u64,
+    pub liab_root: BytesN<32>,
+    pub res_root: BytesN<32>,
+    pub onchain_reserves: i128,
+    pub solvent: bool,
+    pub timestamp: u64,
+}
+
+impl From<AttestationV1> for Attestation {
+    fn from(v: AttestationV1) -> Self {
+        Attestation {
+            version: 1,
+            epoch: v.epoch,
+            liab_root: v.liab_root,
+            res_root: v.res_root,
+            onchain_reserves: v.onchain_reserves,
+            solvent: v.solvent,
+            timestamp: v.timestamp,
+        }
+    }
 }
 
 #[contractevent]
@@ -233,12 +272,12 @@ impl AttestarContract {
     }
 
     pub fn get_attestation(env: Env, epoch: u64) -> Option<Attestation> {
-        env.storage().persistent().get(&DataKey::Attestation(epoch))
+        Self::load_attestation(&env, epoch)
     }
 
     pub fn latest(env: Env) -> Option<Attestation> {
         let epoch: u64 = env.storage().instance().get(&DataKey::LatestEpoch)?;
-        env.storage().persistent().get(&DataKey::Attestation(epoch))
+        Self::load_attestation(&env, epoch)
     }
 
     pub fn is_solvent(env: Env, epoch: u64) -> bool {
@@ -263,6 +302,43 @@ impl AttestarContract {
             .instance()
             .get(&DataKey::Admin)
             .ok_or(Error::NotInitialized)
+    }
+
+    /// Reads one field out of an untyped record map. Absent or unexpected keys
+    /// yield `None` instead of failing the whole decode.
+    fn field<T: TryFromVal<Env, Val>>(
+        env: &Env,
+        fields: &Map<Symbol, Val>,
+        name: &str,
+    ) -> Option<T> {
+        let raw = fields.get(Symbol::new(env, name))?;
+        T::try_from_val(env, &raw).ok()
+    }
+
+    /// Decodes a stored attestation, tolerating records written before the
+    /// `version` tag existed. The record is read as an untyped map first,
+    /// because the typed struct decoder requires an exact key match and would
+    /// otherwise reject (or panic on) pre-upgrade records. Records that predate
+    /// the tag are surfaced as `version = 1`; current records carry
+    /// [`ATTESTATION_VERSION`].
+    fn load_attestation(env: &Env, epoch: u64) -> Option<Attestation> {
+        let key = DataKey::Attestation(epoch);
+        let store = env.storage().persistent();
+        if !store.has(&key) {
+            return None;
+        }
+        let raw: Val = store.get(&key)?;
+        let fields = Map::<Symbol, Val>::try_from_val(env, &raw).ok()?;
+        Some(Attestation {
+            // Pre-upgrade records have no tag; treat them as version 1.
+            version: Self::field(env, &fields, "version").unwrap_or(1),
+            epoch: Self::field(env, &fields, "epoch")?,
+            liab_root: Self::field(env, &fields, "liab_root")?,
+            res_root: Self::field(env, &fields, "res_root")?,
+            onchain_reserves: Self::field(env, &fields, "onchain_reserves")?,
+            solvent: Self::field(env, &fields, "solvent")?,
+            timestamp: Self::field(env, &fields, "timestamp")?,
+        })
     }
 
     fn reserves(env: &Env) -> i128 {
@@ -401,6 +477,7 @@ impl AttestarContract {
         solvent: bool,
     ) -> Attestation {
         let att = Attestation {
+            version: ATTESTATION_VERSION,
             epoch,
             liab_root,
             res_root,

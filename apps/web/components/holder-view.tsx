@@ -11,6 +11,9 @@ import {
   loadStoredProofForUser,
   verifyStoredInclusion,
 } from "@/lib/inclusion-store";
+import { decodeAttestation } from "@/lib/attestation-record";
+import { inclusionForBrowser } from "@/lib/prover-browser";
+import { loadLedger, toHolders, matchByAddress, type LedgerEntry } from "@/lib/ledger";
 import { Panel, Eyebrow, Stat } from "@/components/panel";
 import { baseToUsdc, shortHash } from "@/lib/format";
 import { cn } from "@/lib/cn";
@@ -53,10 +56,11 @@ export function HolderView() {
     try {
       const latest = await attestarReader().latest().then((t) => t.result);
       if (latest) {
+        const record = decodeAttestation(latest);
         setPublished({
-          epoch: latest.epoch.toString(),
-          solvent: latest.solvent,
-          liabRootHex: Buffer.from(latest.liab_root).toString("hex"),
+          epoch: record.epoch.toString(),
+          solvent: record.solvent,
+          liabRootHex: Buffer.from(record.liabRoot).toString("hex"),
         });
       } else {
         setPublished(null);
