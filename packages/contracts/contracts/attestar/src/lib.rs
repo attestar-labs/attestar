@@ -17,6 +17,8 @@ pub enum Error {
     VerifierNotSet = 3,
     InvalidProof = 4,
     EpochExists = 5,
+    Unauthorized = 9,
+    UnknownAttestor = 10,
 }
 
 #[contracttype]
@@ -25,6 +27,10 @@ pub enum DataKey {
     ReserveToken,
     ReserveHolder,
     Attestor,
+    /// The key that was current before the most recent rotation. It stays
+    /// accepted until the overlap window is closed, so a custodian that has not
+    /// yet switched over can still publish valid attestations.
+    PrevAttestor,
     Vk,
     LatestEpoch,
     Attestation(u64),
@@ -48,6 +54,24 @@ pub struct AttestationPosted {
     pub epoch: u64,
     pub solvent: bool,
     pub onchain_reserves: i128,
+}
+
+/// Emitted when the reserve-signature attestor is rotated. `previous` is kept
+/// as the overlap key until the window is closed.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttestorRotated {
+    #[topic]
+    pub current: BytesN<32>,
+    pub previous: BytesN<32>,
+}
+
+/// Emitted when the overlap window is closed early, retiring `retired`.
+#[contractevent]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttestorOverlapEnded {
+    #[topic]
+    pub retired: BytesN<32>,
 }
 
 #[contract]
@@ -90,7 +114,8 @@ impl AttestarContract {
     //   [liab_root, res_root, solvent, onchain_reserves]
     // must match the proof exactly or verification fails. When an attestor is set,
     // a custodian ed25519 signature over (epoch || res_root) attests the off-chain
-    // reserve composition.
+    // reserve composition; the signing key must be the active attestor or, while a
+    // rotation overlap window is open, the previous one.
     pub fn submit_attestation(
         env: Env,
         epoch: u64,
@@ -100,30 +125,92 @@ impl AttestarContract {
         solvent: bool,
         res_sig: BytesN<64>,
     ) -> Result<Attestation, Error> {
-        let admin = Self::admin(&env)?;
-        admin.require_auth();
+        // Classic entry point: the custodian signs with whichever key is
+        // currently active. During a rotation overlap window a custodian that
+        // still holds the previous key publishes via
+        // [`Self::submit_attestation_signed`] instead.
+        let signer = Self::attestor_key(&env);
+        Self::submit(
+            env,
+            epoch,
+            proof,
+            liab_root,
+            res_root,
+            solvent,
+            signer,
+            res_sig,
+        )
+    }
 
-        if env.storage().persistent().has(&DataKey::Attestation(epoch)) {
-            return Err(Error::EpochExists);
+    /// Same as [`Self::submit_attestation`], but the custodian states which of
+    /// the registered attestor keys produced `res_sig`. This is what makes a
+    /// rotation with an overlap window usable: while the window is open, a
+    /// signature from either the current or the previous key verifies.
+    pub fn submit_attestation_signed(
+        env: Env,
+        epoch: u64,
+        proof: Proof,
+        liab_root: BytesN<32>,
+        res_root: BytesN<32>,
+        solvent: bool,
+        res_signer: BytesN<32>,
+        res_sig: BytesN<64>,
+    ) -> Result<Attestation, Error> {
+        Self::submit(
+            env,
+            epoch,
+            proof,
+            liab_root,
+            res_root,
+            solvent,
+            res_signer,
+            res_sig,
+        )
+    }
+
+    /// Rotates the reserve-signature attestor. `new_attestor` becomes the key
+    /// that signs new publications and the key it replaces is retained as the
+    /// overlap key, so publications signed by either key are accepted until
+    /// [`Self::end_attestor_overlap`] is called. Only the stored admin may
+    /// rotate; anyone else gets [`Error::Unauthorized`].
+    pub fn rotate_attestor(
+        env: Env,
+        caller: Address,
+        new_attestor: BytesN<32>,
+    ) -> Result<(), Error> {
+        Self::require_admin(&env, &caller)?;
+
+        let store = env.storage().instance();
+        let previous: BytesN<32> = store
+            .get(&DataKey::Attestor)
+            .unwrap_or_else(|| BytesN::from_array(&env, &[0u8; 32]));
+        store.set(&DataKey::Attestor, &new_attestor);
+        if previous == BytesN::from_array(&env, &[0u8; 32]) {
+            // There is no meaningful key to overlap with, so start clean.
+            store.remove(&DataKey::PrevAttestor);
+        } else {
+            store.set(&DataKey::PrevAttestor, &previous);
         }
 
-        let vk: VerifyingKey = env
-            .storage()
-            .instance()
-            .get(&DataKey::Vk)
-            .ok_or(Error::VerifierNotSet)?;
-
-        let onchain_reserves = Self::reserves(&env);
-        let public_inputs =
-            Self::public_inputs(&env, &liab_root, &res_root, solvent, onchain_reserves);
-        if !groth16::verify(&env, &vk, &proof, &public_inputs) {
-            return Err(Error::InvalidProof);
+        AttestorRotated {
+            current: new_attestor,
+            previous,
         }
+        .publish(&env);
+        Ok(())
+    }
 
-        Self::verify_reserve_sig(&env, epoch, &res_root, &res_sig);
-
-        let att = Self::record(&env, epoch, liab_root, res_root, onchain_reserves, solvent);
-        Ok(att)
+    /// Closes the overlap window early, retiring the previous attestor so only
+    /// the current key is accepted from now on.
+    pub fn end_attestor_overlap(env: Env, caller: Address) -> Result<(), Error> {
+        Self::require_admin(&env, &caller)?;
+        let store = env.storage().instance();
+        let retired: Option<BytesN<32>> = store.get(&DataKey::PrevAttestor);
+        if let Some(retired) = retired {
+            store.remove(&DataKey::PrevAttestor);
+            AttestorOverlapEnded { retired }.publish(&env);
+        }
+        Ok(())
     }
 
     pub fn get_attestation(env: Env, epoch: u64) -> Option<Attestation> {
@@ -195,19 +282,95 @@ impl AttestarContract {
         BytesN::from_array(env, &be)
     }
 
-    fn verify_reserve_sig(env: &Env, epoch: u64, res_root: &BytesN<32>, sig: &BytesN<64>) {
-        let attestor: BytesN<32> = env
+    /// Runs the shared body of the two submission entry points. `res_signer`
+    /// names the registered key that produced `res_sig`.
+    fn submit(
+        env: Env,
+        epoch: u64,
+        proof: Proof,
+        liab_root: BytesN<32>,
+        res_root: BytesN<32>,
+        solvent: bool,
+        res_signer: BytesN<32>,
+        res_sig: BytesN<64>,
+    ) -> Result<Attestation, Error> {
+        let admin = Self::admin(&env)?;
+        admin.require_auth();
+
+        if env.storage().persistent().has(&DataKey::Attestation(epoch)) {
+            return Err(Error::EpochExists);
+        }
+
+        let vk: VerifyingKey = env
             .storage()
             .instance()
-            .get(&DataKey::Attestor)
-            .expect("attestor not set");
-        if attestor == BytesN::from_array(env, &[0u8; 32]) {
-            return;
+            .get(&DataKey::Vk)
+            .ok_or(Error::VerifierNotSet)?;
+
+        let onchain_reserves = Self::reserves(&env);
+        let public_inputs =
+            Self::public_inputs(&env, &liab_root, &res_root, solvent, onchain_reserves);
+        if !groth16::verify(&env, &vk, &proof, &public_inputs) {
+            return Err(Error::InvalidProof);
         }
+
+        Self::verify_reserve_sig(&env, epoch, &res_root, &res_signer, &res_sig)?;
+
+        Ok(Self::record(
+            &env,
+            epoch,
+            liab_root,
+            res_root,
+            onchain_reserves,
+            solvent,
+        ))
+    }
+
+    /// Authorizes `caller` as the stored admin. Non-admins that authenticate as
+    /// themselves are rejected with [`Error::Unauthorized`] rather than a bare
+    /// auth failure.
+    fn require_admin(env: &Env, caller: &Address) -> Result<(), Error> {
+        caller.require_auth();
+        if caller != &Self::admin(env)? {
+            return Err(Error::Unauthorized);
+        }
+        Ok(())
+    }
+
+    /// The currently active attestor key, or the all-zero key when none is set
+    /// (which disables the reserve-signature check).
+    fn attestor_key(env: &Env) -> BytesN<32> {
+        env.storage()
+            .instance()
+            .get(&DataKey::Attestor)
+            .unwrap_or_else(|| BytesN::from_array(env, &[0u8; 32]))
+    }
+
+    fn verify_reserve_sig(
+        env: &Env,
+        epoch: u64,
+        res_root: &BytesN<32>,
+        signer: &BytesN<32>,
+        sig: &BytesN<64>,
+    ) -> Result<(), Error> {
+        let current = Self::attestor_key(env);
+        if current == BytesN::from_array(env, &[0u8; 32]) {
+            // No attestor configured: nothing to verify against.
+            return Ok(());
+        }
+
+        let previous: Option<BytesN<32>> = env.storage().instance().get(&DataKey::PrevAttestor);
+        if signer != &current && previous.as_ref() != Some(signer) {
+            // Only the current key, or the previous key while the overlap window
+            // is open, can attest the off-chain reserves.
+            return Err(Error::UnknownAttestor);
+        }
+
         let mut msg = Bytes::new(env);
         msg.extend_from_slice(&epoch.to_be_bytes());
         msg.extend_from_slice(&res_root.to_array());
-        env.crypto().ed25519_verify(&attestor, &msg, sig);
+        env.crypto().ed25519_verify(signer, &msg, sig);
+        Ok(())
     }
 
     fn record(

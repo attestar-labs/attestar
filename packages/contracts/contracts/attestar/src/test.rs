@@ -5,8 +5,9 @@ use crate::fixtures;
 use crate::groth16::{self, Proof, VerifyingKey};
 use ed25519_dalek::{Signer, SigningKey};
 use soroban_sdk::testutils::Address as _;
+use soroban_sdk::testutils::Events as _;
 use soroban_sdk::token::StellarAssetClient;
-use soroban_sdk::{vec, Address, BytesN, Env, Vec};
+use soroban_sdk::{vec, Address, BytesN, Env, Event, TryFromVal, Val, Vec};
 
 fn bytesn<const N: usize>(env: &Env, a: &[u8; N]) -> BytesN<N> {
     BytesN::from_array(env, a)
@@ -58,6 +59,8 @@ struct Harness<'a> {
     client: AttestarContractClient<'a>,
     token_admin: StellarAssetClient<'a>,
     reserve_holder: Address,
+    admin: Address,
+    contract_id: Address,
     sk: SigningKey,
 }
 
@@ -84,6 +87,8 @@ fn deploy(env: &Env, with_verifier: bool) -> Harness<'_> {
         client,
         token_admin,
         reserve_holder,
+        admin: issuer,
+        contract_id: cid,
         sk,
     }
 }
@@ -255,4 +260,145 @@ fn rejects_bad_custodian_signature() {
     let bad_sig = BytesN::from_array(&env, &[0u8; 64]);
     h.client
         .submit_attestation(&1, &proof, &liab, &res, &fixtures::S_SOLVENT, &bad_sig);
+}
+
+fn second_custodian_key() -> SigningKey {
+    SigningKey::from_bytes(&[11u8; 32])
+}
+
+fn pk(sk: &SigningKey) -> [u8; 32] {
+    sk.verifying_key().to_bytes()
+}
+
+#[test]
+fn non_admin_cannot_rotate_attestor() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+
+    let stranger = Address::generate(&env);
+    let new = BytesN::from_array(&env, &[3u8; 32]);
+    let result = h.client.try_rotate_attestor(&stranger, &new);
+
+    assert_eq!(result, Err(Ok(Error::Unauthorized)));
+}
+
+#[test]
+fn rotation_emits_event_and_keeps_previous_key() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+
+    let old = pk(&h.sk);
+    let new_sk = second_custodian_key();
+    let new = pk(&new_sk);
+
+    h.client
+        .rotate_attestor(&h.admin, &BytesN::from_array(&env, &new));
+
+    // Rotation emitted a single event carrying the previous and new keys.
+    let events = h.env.events().all();
+    assert_eq!(events.events().len(), 1);
+    let last = events.events().last().cloned().unwrap();
+    let body = match last.body {
+        soroban_sdk::xdr::ContractEventBody::V0(v0) => v0,
+    };
+    let data: Val = Val::try_from_val(&h.env, &body.data).unwrap();
+    let expected = AttestorRotated {
+        current: BytesN::from_array(&env, &new),
+        previous: BytesN::from_array(&env, &old),
+    };
+    let actual = soroban_sdk::xdr::ScVal::try_from_val(&h.env, &data).unwrap();
+    let expected = soroban_sdk::xdr::ScVal::try_from_val(&h.env, &expected.data(&h.env)).unwrap();
+    assert_eq!(actual, expected);
+
+    // The new key is active and the old one is retained for the overlap window.
+    let stored: BytesN<32> = h.env.as_contract(&h.contract_id, || {
+        h.env.storage().instance().get(&DataKey::Attestor).unwrap()
+    });
+    assert_eq!(stored, BytesN::from_array(&env, &new));
+    let prev: Option<BytesN<32>> = h
+        .env
+        .as_contract(&h.contract_id, || h.env.storage().instance().get(&DataKey::PrevAttestor));
+    assert_eq!(prev, Some(BytesN::from_array(&env, &old)));
+}
+
+#[test]
+fn either_registered_key_verifies_during_overlap_window() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+    h.token_admin.mint(&h.reserve_holder, &fixtures::S_ONCHAIN);
+
+    let old_sk = custodian_key();
+    let new_sk = second_custodian_key();
+    let new = BytesN::from_array(&env, &pk(&new_sk));
+    h.client.rotate_attestor(&h.admin, &new);
+
+    let proof = solvent_proof(&env);
+    let liab = bytesn(&env, &fixtures::S_LIAB_ROOT);
+    let res = bytesn(&env, &fixtures::S_RES_ROOT);
+
+    // Epoch 1: signed by the outgoing key, still valid during the overlap.
+    let old_sig = BytesN::from_array(&env, &res_signature(&old_sk, 1, &fixtures::S_RES_ROOT));
+    let att_old = h.client.submit_attestation_signed(
+        &1,
+        &proof,
+        &liab,
+        &res,
+        &fixtures::S_SOLVENT,
+        &BytesN::from_array(&env, &pk(&old_sk)),
+        &old_sig,
+    );
+    assert!(att_old.solvent);
+
+    // Epoch 2: signed by the incoming key via the signed entry point.
+    let new_sig = BytesN::from_array(&env, &res_signature(&new_sk, 2, &fixtures::S_RES_ROOT));
+    let att_new = h.client.submit_attestation_signed(
+        &2,
+        &proof,
+        &liab,
+        &res,
+        &fixtures::S_SOLVENT,
+        &new,
+        &new_sig,
+    );
+    assert!(att_new.solvent);
+
+    // Epoch 3: the classic entry point now signs with the incoming key.
+    let new_sig3 = BytesN::from_array(&env, &res_signature(&new_sk, 3, &fixtures::S_RES_ROOT));
+    let att_classic =
+        h.client
+            .submit_attestation(&3, &proof, &liab, &res, &fixtures::S_SOLVENT, &new_sig3);
+    assert!(att_classic.solvent);
+}
+
+#[test]
+fn ended_overlap_window_rejects_the_retired_key() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+    h.token_admin.mint(&h.reserve_holder, &fixtures::S_ONCHAIN);
+
+    let old_sk = custodian_key();
+    let new_sk = second_custodian_key();
+    h.client
+        .rotate_attestor(&h.admin, &BytesN::from_array(&env, &pk(&new_sk)));
+    h.client.end_attestor_overlap(&h.admin);
+    let prev: Option<BytesN<32>> = h
+        .env
+        .as_contract(&h.contract_id, || h.env.storage().instance().get(&DataKey::PrevAttestor));
+    assert_eq!(prev, None);
+
+    let proof = solvent_proof(&env);
+    let liab = bytesn(&env, &fixtures::S_LIAB_ROOT);
+    let res = bytesn(&env, &fixtures::S_RES_ROOT);
+    let old_sig = BytesN::from_array(&env, &res_signature(&old_sk, 1, &fixtures::S_RES_ROOT));
+    let result = h.client.try_submit_attestation_signed(
+        &1,
+        &proof,
+        &liab,
+        &res,
+        &fixtures::S_SOLVENT,
+        &BytesN::from_array(&env, &pk(&old_sk)),
+        &old_sig,
+    );
+
+    assert_eq!(result, Err(Ok(Error::UnknownAttestor)));
 }
