@@ -7,6 +7,13 @@ install time.
 ## Exports
 
 `src/index.ts` exports:
+```bash
+soroban contract bindings ts \
+  --rpc-url https://soroban-testnet.stellar.org \
+  --network-passphrase "Test SDF Network ; September 2015" \
+  --contract-id CD36EVFKGZH23JLRQMJZPG7XKPNO6ZVK67GHN2RQJG5VM6CVYTE2GRDH \
+  --output-dir ./path/to/attestar-client
+```
 
 - `Client` — the contract client, extending `@stellar/stellar-sdk/contract`'s `ContractClient`.
   Methods: `initialize`, `set_verifier`, `submit_attestation`, `get_attestation`, `latest`,
@@ -38,6 +45,10 @@ const attestar = new Client({
 });
 
 const latest = (await attestar.latest()).result; // Option<Attestation>
+```json
+"scripts": {
+  "postinstall": "soroban contract bindings ts --rpc-url https://soroban-testnet.stellar.org --network-passphrase \"Test SDF Network ; September 2015\" --id CD36EVFKGZH23JLRQMJZPG7XKPNO6ZVK67GHN2RQJG5VM6CVYTE2GRDH --name attestar-client"
+}
 ```
 
 For a write call, also pass a SEP-43 `signTransaction` function so the client can assemble and

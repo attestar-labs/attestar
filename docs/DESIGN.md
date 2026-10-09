@@ -118,6 +118,19 @@ The repository is a pnpm workspace; the members are exactly those listed in
     (gitignored: holds the issuer secret). Dev server on port 3100 (3000 is the Excalidraw canvas).
   - serverExternalPackages in next.config keeps snarkjs/circomlibjs/stellar-sdk out of the bundle.
 
+### Deployment id archive (historical)
+
+These ids come from the dated build-log entries above and are superseded by the current testnet
+deployment. The live Attestar id is
+`CD36EVFKGZH23JLRQMJZPG7XKPNO6ZVK67GHN2RQJG5VM6CVYTE2GRDH` (see the root `README.md` deployment
+table and `apps/web/lib/config.ts`); the ids below are kept for history only:
+
+- `CDEGNQIHKDYXE7PNV6SHJ6OENSVDPLUEL5KS7TDHTJQIAQBBJMT4U5QS` — first testnet verifier deployment.
+- `CB2FQBKA4UGJ3VSNRYDD6IAMOKJ7IVBZH5SOT3BAZCPTIPRJYBEUCCI6` — full on-chain demo deployment
+  (token `CB5IWYQ6VABQ7TSGQKMEC7F3BR3HOS5TO3O44J4CK75QAJXMO3PY5MMO`).
+- `CBM5K5RIAH4QIDMULKU6K7RFQP5ZEEOZM5O46QHMNJNAT6A4LQP55QOC` — web-demo deployment
+  (token `CALXJ4SGBXJQRLHZSDDKFXDT2ZGSMSCW5KDPJ5R4BS4BULG7LHP6WMUU`).
+
 ### What remains
 - Record the 2-3 min demo video (the reproducible on-chain flow is `packages/contracts/scripts/demo_testnet.sh`).
 - Optional polish: auditor selective-disclosure view, more holders in the demo, copy pass.

@@ -7,6 +7,13 @@ nothing is generated at install time.
 ## Exports
 
 `src/index.ts` exports:
+```bash
+soroban contract bindings ts \
+  --rpc-url https://soroban-testnet.stellar.org \
+  --network-passphrase "Test SDF Network ; September 2015" \
+  --contract-id CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA \
+  --output-dir ./path/to/usdc-client
+```
 
 - `Client` — the contract client, extending `@stellar/stellar-sdk/contract`'s `ContractClient`.
   Methods include `balance`, `transfer`, `transfer_from`, `approve`, `allowance`, `mint`, `burn`,
@@ -33,6 +40,10 @@ const usdc = new Client({
 });
 
 const bal = (await usdc.balance({ id: "GDFKPIKJIY4JCYNMQ6IGX674O4HLPIPWD42LWHJSLOHAKR33IZ2VQTID" })).result;
+```json
+"scripts": {
+  "postinstall": "soroban contract bindings ts --rpc-url https://soroban-testnet.stellar.org --network-passphrase \"Test SDF Network ; September 2015\" --id CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA --name usdc-client"
+}
 ```
 
 For a transfer signed by a wallet, also pass a SEP-43 `signTransaction` function:
