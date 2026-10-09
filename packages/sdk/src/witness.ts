@@ -1,4 +1,5 @@
 import { assertLeafAmount } from "./errors.js";
+import { assertBalanceInRange } from "./range.js";
 import type { Holder, CircuitInput, PrivateCircuitInput } from "./types.js";
 
 export function buildCircuitInput(holders: Holder[], depth: number): CircuitInput {
@@ -6,6 +7,9 @@ export function buildCircuitInput(holders: Holder[], depth: number): CircuitInpu
   if (holders.length > capacity) {
     throw new Error(`too many holders: ${holders.length} > capacity ${capacity}`);
   }
+  // The circuit range-checks each balance with Num2Bits(BITS); reject values it
+  // cannot accept here, naming the row, before snarkjs builds the witness.
+  holders.forEach((h, i) => assertBalanceInRange(h.balance, i));
   const balances: string[] = [];
   const userIds: string[] = [];
   for (let i = 0; i < capacity; i++) {
@@ -22,6 +26,7 @@ function padVector(items: Holder[], depth: number) {
   if (items.length > capacity) {
     throw new Error(`too many entries: ${items.length} > capacity ${capacity}`);
   }
+  items.forEach((h, i) => assertBalanceInRange(h.balance, i));
   const balances: string[] = [];
   const userIds: string[] = [];
   for (let i = 0; i < capacity; i++) {
