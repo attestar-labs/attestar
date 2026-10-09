@@ -49,10 +49,33 @@ export const saveLedger = (e: LedgerEntry[]) => save(LEDGER_KEY, e);
 export const loadSources = () => load(SOURCES_KEY, DEFAULT_SOURCES);
 export const saveSources = (e: LedgerEntry[]) => save(SOURCES_KEY, e);
 
+// BN254 scalar field order; a holder id must be a canonical field element.
+const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+function parseUserId(raw: string, label: string, index: number): bigint {
+  const trimmed = raw.trim();
+  let value: bigint;
+  try {
+    value = BigInt(trimmed);
+  } catch {
+    throw new Error(`Row ${index + 1} (${label || "unnamed"}): holder id "${raw}" is not an integer`);
+  }
+  if (value < 0n) {
+    throw new Error(`Row ${index + 1} (${label || "unnamed"}): holder id "${raw}" must be non-negative`);
+  }
+  if (value >= FIELD_MODULUS) {
+    throw new Error(`Row ${index + 1} (${label || "unnamed"}): holder id "${raw}" exceeds the circuit field`);
+  }
+  return value;
+}
+
 export function toHolders(entries: LedgerEntry[]): Holder[] {
-  return entries
-    .filter((h) => h.userId.trim() !== "" && h.balance.trim() !== "")
-    .map((h) => ({ userId: BigInt(h.userId), balance: usdcToBase(h.balance) }));
+  const holders: Holder[] = [];
+  entries.forEach((h, index) => {
+    if (h.userId.trim() === "" || h.balance.trim() === "") return;
+    holders.push({ userId: parseUserId(h.userId, h.label, index), balance: usdcToBase(h.balance) });
+  });
+  return holders;
 }
 
 export interface RejectedRow {
