@@ -20,7 +20,7 @@ ${SNARKJS} r1cs info "${OUT}/${NAME}.r1cs"
 
 # Resolve a ptau file.
 if [ -z "${PTAU:-}" ]; then
-  PTAU="$(ls -1 build/ptau/pot*.ptau 2>/dev/null | sort | tail -1 || true)"
+  PTAU="$(find build/ptau -maxdepth 1 -name 'pot*.ptau' 2>/dev/null | sort | tail -1 || true)"
 fi
 [ -n "${PTAU:-}" ] && [ -f "${PTAU}" ] || {
   echo "no ptau found. run: bash scripts/ptau.sh <POWER>  (and/or set PTAU=...)"; exit 1;

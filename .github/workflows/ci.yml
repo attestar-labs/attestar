@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+      - name: Lint every tracked shell script
+        run: |
+          set -euo pipefail
+          shellcheck --version
+          # `git ls-files` already excludes ignored/generated trees (node_modules,
+          # build, target, dist); filter them defensively in case a script is ever
+          # tracked under one.
+          mapfile -t files < <(git ls-files '*.sh' | grep -vE '(^|/)(node_modules|build|target|dist)/' || true)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no shell scripts found"
+            exit 0
+          fi
+          printf 'checking %s\n' "${files[@]}"
+          shellcheck "${files[@]}"

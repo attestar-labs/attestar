@@ -20,17 +20,17 @@ ZERO32=$(printf '00%.0s' $(seq 1 32))
 
 cd "$CON"
 echo "==> deploying contracts"
-TOKEN=$(stellar contract deploy --wasm target/wasm32v1-none/release/mock_token.wasm $SRC $NET 2>/dev/null | grep -oE 'C[A-Z0-9]{55}' | tail -1)
-ATT=$(stellar contract deploy --wasm target/wasm32v1-none/release/attestar.wasm $SRC $NET 2>/dev/null | grep -oE 'C[A-Z0-9]{55}' | tail -1)
+TOKEN=$(stellar contract deploy --wasm target/wasm32v1-none/release/mock_token.wasm "$SRC" "$NET" 2>/dev/null | grep -oE 'C[A-Z0-9]{55}' | tail -1)
+ATT=$(stellar contract deploy --wasm target/wasm32v1-none/release/attestar.wasm "$SRC" "$NET" 2>/dev/null | grep -oE 'C[A-Z0-9]{55}' | tail -1)
 echo "    token=$TOKEN attestar=$ATT"
 
 echo "==> minting initial reserves (1,000,000)"
-stellar contract invoke --id "$TOKEN" $SRC $NET --send=yes -- mint --to "$DEPLOYER" --amount 1000000 >/dev/null
+stellar contract invoke --id "$TOKEN" "$SRC" "$NET" --send=yes -- mint --to "$DEPLOYER" --amount 1000000 >/dev/null
 
 echo "==> initialize + set_verifier (solvency_demo vkey)"
-stellar contract invoke --id "$ATT" $SRC $NET --send=yes -- \
+stellar contract invoke --id "$ATT" "$SRC" "$NET" --send=yes -- \
   initialize --admin "$DEPLOYER" --reserve_token "$TOKEN" --reserve_holder "$DEPLOYER" --attestor "$ZERO32" >/dev/null
-stellar contract invoke --id "$ATT" $SRC $NET --send=yes -- \
+stellar contract invoke --id "$ATT" "$SRC" "$NET" --send=yes -- \
   set_verifier --vk "$(cat "$CIRC/build/solvency_demo/arg_vk.json")" >/dev/null
 
 ENV_FILE=$ABS/apps/web/.env.local
