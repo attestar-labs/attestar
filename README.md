@@ -217,6 +217,35 @@ attestar/
 
 The Attestar contract surface: `initialize`, `set_verifier`, `submit_attestation`, `get_attestation`, `latest`, `is_solvent`, `verify_proof`.
 
+## Proving artifacts
+
+The Groth16 proving key is the only genuinely large asset in the project (~13 MB). It is **not
+committed** — git keeps every blob forever, and every clone (including the Actions checkout) plus
+every visitor of the deployed app would pay for it. In-tree we keep only the small witness
+generator (`apps/web/public/circuit/psolvency_demo.wasm`, ~2.5 MB) and the verifier key
+(`apps/web/lib/vk.json`).
+
+Fetch the key on demand:
+
+```bash
+pnpm --filter @attestar/web run fetch:circuit   # writes apps/web/public/circuit/psolvency_demo.zkey
+```
+
+The web package's `predev` and `prebuild` scripts run the same fetch automatically, so `pnpm web:dev`
+and `pnpm --filter @attestar/web build` stay self-contained. The fetch is idempotent: it skips the
+download when `psolvency_demo.zkey` already exists and matches its SHA-256, which is what makes the
+CI cache restore a no-op.
+
+- Source: the `circuit-v1` release asset published from this repository
+  (`PSOLVENCY_ZKEY_URL` overrides it, e.g. to an object-storage mirror).
+- SHA-256: `1af0d283910393063c2173e5849a2f2c26f7cc6408a450c2bf4a7734205aee5d`
+  (`PSOLVENCY_ZKEY_SHA256` overrides it). The script removes the file and fails if the checksum does
+  not match.
+
+CI caches `apps/web/public/circuit/psolvency_demo.zkey` keyed on that digest; the cache step is
+owned by `.github/workflows/ci.yml`, which does not exist in this tree and is created by the CI
+issues, not here.
+
 ## Getting started
 
 **Prerequisites:** Node 20+, pnpm 10 (`corepack enable && corepack prepare pnpm@10.10.0 --activate`), and for rebuilding the ZK + contract: Rust, the `stellar` CLI, and `circom` 2.1.6, the version every `.circom` file declares in its `pragma` (the committed artifacts were produced with the 2.2.3 toolchain); on Windows these run in WSL. A **Freighter** wallet on **testnet** with a USDC trustline and a little testnet USDC (from [faucet.circle.com](https://faucet.circle.com)).
@@ -254,8 +283,9 @@ node scripts/encode_p.mjs                         # -> Rust test fixtures (real 
 cd ../contracts && stellar contract build && cargo test -p attestar
 
 # 3. deploy + initialize with the real USDC SAC as reserve_token, admin = your Freighter address,
-#    then point apps/web/.env.local at the new contract id and copy the proving assets into
-#    apps/web/public/circuit (psolvency_demo.wasm + .zkey) and apps/web/lib/vk.json.
+#    then point apps/web/.env.local at the new contract id, copy the witness generator into
+#    apps/web/public/circuit (psolvency_demo.wasm + psolvency_demo.vkey.json), and fetch the
+#    proving key with: pnpm --filter @attestar/web run fetch:circuit  (see "Proving artifacts").
 ```
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the original design notes and the research that validated the idea. The reproducible end-to-end on-chain demo is [`packages/contracts/scripts/demo_testnet.sh`](packages/contracts/scripts/demo_testnet.sh).
