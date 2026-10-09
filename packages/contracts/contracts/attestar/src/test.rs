@@ -9,6 +9,22 @@ use soroban_sdk::testutils::Events as _;
 use soroban_sdk::token::StellarAssetClient;
 use soroban_sdk::{vec, Address, BytesN, Env, Event, TryFromVal, Val, Vec};
 
+// Minimal token used only to drive `reserves()` negative, which a Stellar asset
+// contract (whose trustline balances are unsigned) cannot express.
+#[contract]
+pub struct NegativeBalanceToken;
+
+#[contractimpl]
+impl NegativeBalanceToken {
+    pub fn set_balance(env: Env, id: Address, amount: i128) {
+        env.storage().persistent().set(&id, &amount);
+    }
+
+    pub fn balance(env: Env, id: Address) -> i128 {
+        env.storage().persistent().get(&id).unwrap_or(0)
+    }
+}
+
 fn bytesn<const N: usize>(env: &Env, a: &[u8; N]) -> BytesN<N> {
     BytesN::from_array(env, a)
 }
@@ -222,6 +238,72 @@ fn rejects_faked_onchain_reserves() {
             .try_submit_attestation(&1, &proof, &liab, &res, &fixtures::S_SOLVENT, &sig);
 
     assert_eq!(result, Err(Ok(Error::InvalidProof)));
+}
+
+#[test]
+fn rejects_identical_liability_and_reserve_roots() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+
+    // The two commitments must describe different sums; submitting one root for both
+    // is rejected on the signals alone, before the pairing is attempted.
+    let proof = solvent_proof(&env);
+    let root = bytesn(&env, &fixtures::S_RES_ROOT);
+    let sig = BytesN::from_array(&env, &res_signature(&h.sk, 1, &fixtures::S_RES_ROOT));
+    let result =
+        h.client
+            .try_submit_attestation(&1, &proof, &root, &root, &fixtures::S_SOLVENT, &sig);
+
+    assert_eq!(result, Err(Ok(Error::IdenticalRoots)));
+}
+
+#[test]
+fn rejects_zero_commitments() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+
+    let proof = solvent_proof(&env);
+    let zero = bytesn(&env, &[0u8; 32]);
+    let res = bytesn(&env, &fixtures::S_RES_ROOT);
+    let sig = BytesN::from_array(&env, &res_signature(&h.sk, 1, &fixtures::S_RES_ROOT));
+    let result =
+        h.client
+            .try_submit_attestation(&1, &proof, &zero, &res, &fixtures::S_SOLVENT, &sig);
+    assert_eq!(result, Err(Ok(Error::ZeroRoot)));
+
+    let liab = bytesn(&env, &fixtures::S_LIAB_ROOT);
+    let result =
+        h.client
+            .try_submit_attestation(&1, &proof, &liab, &zero, &fixtures::S_SOLVENT, &sig);
+    assert_eq!(result, Err(Ok(Error::ZeroRoot)));
+}
+
+#[test]
+fn rejects_negative_onchain_reserves() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let issuer = Address::generate(&env);
+    let holder = Address::generate(&env);
+
+    // A reserve balance that can be driven negative, which the SAC cannot express.
+    let token_id = env.register(NegativeBalanceToken, ());
+    NegativeBalanceTokenClient::new(&env, &token_id).set_balance(&holder, &-1);
+
+    let sk = custodian_key();
+    let attestor = BytesN::from_array(&env, &sk.verifying_key().to_bytes());
+    let cid = env.register(AttestarContract, ());
+    let client = AttestarContractClient::new(&env, &cid);
+    client.initialize(&issuer, &token_id, &holder, &attestor);
+    client.set_verifier(&make_vk(&env));
+
+    let proof = solvent_proof(&env);
+    let liab = bytesn(&env, &fixtures::S_LIAB_ROOT);
+    let res = bytesn(&env, &fixtures::S_RES_ROOT);
+    let sig = BytesN::from_array(&env, &res_signature(&sk, 1, &fixtures::S_RES_ROOT));
+    let result =
+        client.try_submit_attestation(&1, &proof, &liab, &res, &fixtures::S_SOLVENT, &sig);
+
+    assert_eq!(result, Err(Ok(Error::NegativeReserves)));
 }
 
 #[test]
