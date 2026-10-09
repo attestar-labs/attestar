@@ -250,6 +250,19 @@ cd ../contracts && stellar contract build && cargo test -p attestar
 #    apps/web/public/circuit (psolvency_demo.wasm + .zkey) and apps/web/lib/vk.json.
 ```
 
+### Circuit artifacts
+
+Only the two proving assets the web app loads at runtime are committed:
+
+- `apps/web/public/circuit/psolvency_demo.wasm`
+- `apps/web/public/circuit/psolvency_demo.zkey`
+
+Every other build product under `packages/circuits/build/**` (and any other `*.zkey` / `*.wasm`)
+is gitignored. Regenerate them with `bash scripts/build.sh psolvency_demo` from `packages/circuits`
+(powers of tau first via `bash scripts/ptau.sh 16`), or copy them from a previous build. A CI guard
+(`.github/scripts/check-artifacts.sh`) fails any change that tracks a circuit artifact outside the
+two files above.
+
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the original design notes and the research that validated the idea.
 
 ## License

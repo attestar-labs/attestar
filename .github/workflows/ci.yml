@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Fails when a large circuit artifact (*.zkey, *.wasm, packages/circuits/build/**)
+      # is committed outside the explicit allowlist of the two web proving assets.
+      - name: Guard against committed circuit artifacts
+        run: bash .github/scripts/check-artifacts.sh

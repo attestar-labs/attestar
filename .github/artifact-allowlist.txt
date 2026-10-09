@@ -1,0 +1,5 @@
+# Tracked circuit artifacts permitted by .github/scripts/check-artifacts.sh.
+# Anything else matching *.zkey, *.wasm or packages/circuits/build/** fails the
+# guard; regenerate (or fetch) such artifacts instead of committing them.
+apps/web/public/circuit/psolvency_demo.zkey
+apps/web/public/circuit/psolvency_demo.wasm
