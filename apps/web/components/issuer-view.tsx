@@ -23,9 +23,10 @@ import {
   saveLedger,
   loadSources,
   saveSources,
-  sumBase,
+  sumBaseDetailed,
   toHolders,
   type LedgerEntry,
+  type RejectedRow,
 } from "@/lib/ledger";
 import { encryptDisclosure, saveDisclosure, DEFAULT_VIEW_KEY } from "@/lib/disclosure";
 import { Panel, Eyebrow, Stat } from "@/components/panel";
@@ -67,8 +68,10 @@ export function IssuerView() {
     setVerifierSet(window.localStorage.getItem(VERIFIER_FLAG) === "1");
   }, []);
 
-  const liabilitiesBase = useMemo(() => sumBase(ledger), [ledger]);
-  const offchainBase = useMemo(() => sumBase(sources), [sources]);
+  const liabilities = useMemo(() => sumBaseDetailed(ledger), [ledger]);
+  const offchain = useMemo(() => sumBaseDetailed(sources), [sources]);
+  const liabilitiesBase = liabilities.total;
+  const offchainBase = offchain.total;
   const totalReservesBase = reservesBase + offchainBase;
   const wouldBeSolvent = totalReservesBase >= liabilitiesBase;
 
@@ -283,6 +286,7 @@ export function IssuerView() {
             hint="What you owe your customers. Your real customer book; in the demo it's example data you can edit. Stays in this browser; only a commitment goes on-chain."
             entries={ledger}
             total={liabilitiesBase}
+            rejected={liabilities.rejected}
             totalLabel="Total liabilities"
             onEdit={(i, k, v) => edit(setLedger, saveLedger, i, k, v)}
             onAdd={() => add(setLedger, saveLedger, "Holder")}
@@ -294,6 +298,7 @@ export function IssuerView() {
             hint="What backs those liabilities, held off-chain with banks/custodians. Composition stays private; it's added to your real on-chain USDC to test solvency."
             entries={sources}
             total={offchainBase}
+            rejected={offchain.rejected}
             totalLabel="Off-chain reserves"
             onEdit={(i, k, v) => edit(setSources, saveSources, i, k, v)}
             onAdd={() => add(setSources, saveSources, "Custodian")}
@@ -497,6 +502,7 @@ function LedgerCard({
   hint,
   entries,
   total,
+  rejected,
   totalLabel,
   onEdit,
   onAdd,
@@ -507,6 +513,7 @@ function LedgerCard({
   hint: string;
   entries: LedgerEntry[];
   total: bigint;
+  rejected: RejectedRow[];
   totalLabel: string;
   onEdit: (i: number, key: keyof LedgerEntry, value: string) => void;
   onAdd: () => void;
@@ -552,6 +559,15 @@ function LedgerCard({
           </div>
         ))}
       </div>
+      {rejected.length > 0 && (
+        <div className="flex flex-col gap-1 border-t border-failed/30 bg-failed/5 px-5 py-2.5">
+          {rejected.map((r) => (
+            <p key={r.index} className="font-mono text-[11px] text-failed">
+              Row {r.index + 1} · {r.label || "unnamed"}: {r.balance || "(empty)"} — {r.reason}
+            </p>
+          ))}
+        </div>
+      )}
       <div className="flex items-center justify-between border-t border-line px-5 py-3">
         <button
           onClick={onAdd}
