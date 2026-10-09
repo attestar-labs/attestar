@@ -152,6 +152,37 @@ jobs:
       run: pnpm build:sdk
     - name: Run all package tests
       run: pnpm -r test
+  circuits:
+    name: circuits
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+    - name: Install workspace
+      run: pnpm install --no-frozen-lockfile
+    - name: Install circom
+      run: "curl -sSfL -o /tmp/circom \\\n  https://github.com/iden3/circom/releases/download/v2.2.3/circom-linux-amd64\n\
+        chmod +x /tmp/circom\nsudo install -m 0755 /tmp/circom /usr/local/bin/circom\n\
+        circom --version\n"
+    - name: Provide powers of tau
+      working-directory: packages/circuits
+      run: bash scripts/ptau.sh 16
+    - name: Compile psolvency_demo
+      run: pnpm --filter @attestar/circuits build:demo
+    - name: Report constraint count
+      working-directory: packages/circuits
+      run: "{\n  echo \"### psolvency_demo constraints\"\n  echo \"\"\n  echo '```'\n\
+        \  pnpm exec snarkjs r1cs info build/psolvency_demo/psolvency_demo.r1cs\n\
+        \  echo '```'\n} | tee -a \"$GITHUB_STEP_SUMMARY\"\n"
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
