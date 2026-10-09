@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { Star } from "@/components/star";
 
 type Status = "solvent" | "insolvent" | "none";
 
@@ -56,13 +57,5 @@ export function SolvencySeal({ status, className }: { status: Status; className?
         </div>
       </div>
     </div>
-  );
-}
-
-function Star({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <path d="M12 1.5c.3 4.8 1.9 6.4 6.7 6.7v.6c-4.8.3-6.4 1.9-6.7 6.7h-.6c-.3-4.8-1.9-6.4-6.7-6.7v-.6c4.8-.3 6.4-1.9 6.7-6.7z" />
-    </svg>
   );
 }

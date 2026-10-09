@@ -1,9 +1,7 @@
 import type { SVGProps } from "react";
+import { Star } from "@/components/star";
 
 export type MarkProps = SVGProps<SVGSVGElement> & { size?: number };
-
-const STAR =
-  "M12 1.5c.3 4.8 1.9 6.4 6.7 6.7v.6c-4.8.3-6.4 1.9-6.7 6.7h-.6c-.3-4.8-1.9-6.4-6.7-6.7v-.6c4.8-.3 6.4-1.9 6.7-6.7z";
 
 // A - Seal Star: an attestation ring around the Stellar star. Closest to the live SolvencySeal.
 export function MarkSealStar({ size = 24, ...rest }: MarkProps) {
@@ -11,9 +9,7 @@ export function MarkSealStar({ size = 24, ...rest }: MarkProps) {
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="currentColor" aria-hidden {...rest}>
       <circle cx="16" cy="16" r="13.6" strokeWidth="1.4" opacity="0.5" />
       <circle cx="16" cy="16" r="11" strokeWidth="0.7" opacity="0.3" />
-      <svg x="9" y="9" width="14" height="14" viewBox="0 0 24 24">
-        <path d={STAR} fill="currentColor" stroke="none" />
-      </svg>
+      <Star size={14} x={9} y={9} stroke="none" />
     </svg>
   );
 }
@@ -38,9 +34,7 @@ export function MarkCheckSeal({ size = 24, ...rest }: MarkProps) {
 export function MarkNorthStar({ size = 24, ...rest }: MarkProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" stroke="currentColor" aria-hidden {...rest}>
-      <svg x="3.5" y="3.5" width="25" height="25" viewBox="0 0 24 24">
-        <path d={STAR} fill="currentColor" stroke="none" />
-      </svg>
+      <Star size={25} x={3.5} y={3.5} stroke="none" />
     </svg>
   );
 }
@@ -55,9 +49,7 @@ export function MarkShield({ size = 24, ...rest }: MarkProps) {
         strokeLinejoin="round"
         opacity="0.55"
       />
-      <svg x="9.5" y="8" width="13" height="13" viewBox="0 0 24 24">
-        <path d={STAR} fill="currentColor" stroke="none" />
-      </svg>
+      <Star size={13} x={9.5} y={8} stroke="none" />
     </svg>
   );
 }
