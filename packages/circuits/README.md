@@ -6,6 +6,19 @@ individual balance or either total.
 The zero-knowledge core of Attestar: Circom circuits that prove `on-chain reserves + private
 off-chain reserves >= total liabilities`, without revealing any individual balance or either
 total.
+The zero-knowledge core of Attestar: Circom circuits that prove `on-chain reserves + private
+off-chain reserves >= total liabilities`, without revealing any individual balance or either
+total.
+
+Two circuit families live here:
+
+- **`PrivateSolvency(LIAB_DEPTH, RES_DEPTH, BITS, CMPBITS)`** — the production circuit. Holder
+  liabilities and off-chain reserve sources are each committed as a Merkle-sum tree, every leaf
+  is range checked, and the combined reserves are compared against the total liabilities inside
+  the circuit. This is what the web app proves against and what the deployed contract verifies.
+- **`SolvencyTree(DEPTH, BITS)`** — the original single-tree circuit (liabilities only, with the
+  reserve figure supplied outside the circuit). Kept for reference and fast iteration; not part
+  of the shipped path.
 
 Two circuit families live here:
 
@@ -34,6 +47,26 @@ both the production circuit and the legacy single-tree circuits.
 `circuits/legacy/` holds the original single-tree circuits (`solvency.circom`,
 `solvency_demo.circom`, `solvency_test.circom`). They are retained for reference only — nothing
 builds or consumes them. See `circuits/legacy/README.md`.
+Every `.circom` file tracked under `circuits/`:
+
+- `circuits/psolvency_demo.circom` — **production entry point**: instantiates
+  `PrivateSolvency(4, 3, 64, 96)`, i.e. up to 16 liability leaves, up to 8 off-chain reserve
+  leaves, 64-bit balances, and a 96-bit comparison.
+- `circuits/lib/private_solvency.circom` — the `PrivateSolvency` template: builds the two
+  Merkle-sum trees, sums on-chain + off-chain reserves, and emits the solvency comparison.
+- `circuits/lib/solvency_tree.circom` — the shared `Leaf`, `Node`, and `SolvencyTree(DEPTH, BITS)`
+  templates (Poseidon hashing, `Num2Bits(BITS)` range checks).
+- `circuits/solvency.circom` — **legacy** single-tree circuit, `DEPTH = 10` (up to 1024 holders).
+- `circuits/solvency_demo.circom` — **legacy** single-tree circuit, `DEPTH = 4` (up to 16
+  holders).
+- `circuits/solvency_test.circom` — **legacy** single-tree circuit, `DEPTH = 2` (4 holders) for
+  fast local iteration and CI smoke tests.
+
+## Public signals
+
+`circuits/psolvency_demo.circom` (via `PrivateSolvency`) exposes four public signals, **in this
+order**:
+
 Every `.circom` file tracked under `circuits/`:
 
 - `circuits/psolvency_demo.circom` — **production entry point**: instantiates
