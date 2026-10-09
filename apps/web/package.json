@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit",
     "fetch:circuit": "node scripts/fetch-proving-key.mjs",
     "prebuild": "node scripts/fetch-proving-key.mjs",
-    "predev": "node scripts/fetch-proving-key.mjs"
+    "predev": "node scripts/fetch-proving-key.mjs",
+    "pretest": "pnpm --filter attestar-client --filter usdc-client build"
   },
   "dependencies": {
     "@attestar/sdk": "workspace:*",
