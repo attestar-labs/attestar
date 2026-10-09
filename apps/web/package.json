@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "fetch:circuit": "node scripts/fetch-proving-key.mjs",
+    "prebuild": "node scripts/fetch-proving-key.mjs",
+    "predev": "node scripts/fetch-proving-key.mjs"
   },
   "dependencies": {
     "@attestar/sdk": "workspace:*",
