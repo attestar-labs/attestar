@@ -19,8 +19,16 @@ function concat(parts: Uint8Array[]): Uint8Array {
   return out;
 }
 
+const FIELD_BYTES_UPPER_BOUND = 1n << 256n;
+
 export function fieldToBytes(value: bigint | string): Uint8Array {
-  return toBytes32BE(BigInt(value));
+  const v = BigInt(value);
+  if (v < 0n || v >= FIELD_BYTES_UPPER_BOUND) {
+    throw new Error(
+      `fieldToBytes: ${v} is out of range for a 32-byte field element (expected 0 <= value < 2^256)`,
+    );
+  }
+  return toBytes32BE(v);
 }
 
 // G1 affine -> be(X) || be(Y), 64 bytes.
