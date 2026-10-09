@@ -21,6 +21,7 @@ export function SolvencySeal({ status, className }: { status: Status; className?
 
   return (
     <div className={cn("relative aspect-square w-64 select-none", className)}>
+      <span className="sr-only">{`Solvency status: ${word}`}</span>
       <div
         className="absolute inset-0 motion-safe:animate-[seal-rotate_40s_linear_infinite]"
         style={{ transformOrigin: "center" }}
