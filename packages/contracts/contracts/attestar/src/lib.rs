@@ -41,6 +41,14 @@ pub enum Error {
 /// ages. At one attestation per day this retains roughly three months of
 /// history; older epochs must be read from an off-chain archive.
 pub const MAX_EPOCHS: u32 = 90;
+/// Ledger count below which a hot-path entry is renewed on access. Stellar closes a
+/// ledger roughly every 5 seconds, so this is about 30 days: far longer than the
+/// daily publish interval Attestar targets, so a caller that touches the contract
+/// at all inside a month never races archival.
+pub const TTL_THRESHOLD_LEDGERS: u32 = 518_400; // ~30 days at 5s/ledger
+/// Lifetime a renewed entry is extended to, about 60 days. Must be at least the
+/// threshold; the extra headroom lets a single renewal cover a month of silence.
+pub const TTL_EXTEND_TO_LEDGERS: u32 = 1_036_800; // ~60 days at 5s/ledger
 
 #[contracttype]
 pub enum DataKey {
@@ -151,6 +159,7 @@ impl AttestarContract {
         store.set(&DataKey::ReserveToken, &reserve_token);
         store.set(&DataKey::ReserveHolder, &reserve_holder);
         store.set(&DataKey::Attestor, &attestor);
+        Self::bump_instance(&env);
         Ok(())
     }
 
@@ -158,6 +167,7 @@ impl AttestarContract {
         let admin = Self::admin(&env)?;
         admin.require_auth();
         env.storage().instance().set(&DataKey::Vk, &vk);
+        Self::bump_instance(&env);
         Ok(())
     }
 
@@ -210,6 +220,9 @@ impl AttestarContract {
             res_sig,
         )
     }
+        Self::bump_instance(&env);
+        let admin = Self::admin(&env)?;
+        admin.require_auth();
 
     /// Same as [`Self::submit_attestation`], but the custodian states which of
     /// the registered attestor keys produced `res_sig`. This is what makes a
@@ -290,11 +303,17 @@ impl AttestarContract {
 
     pub fn get_attestation(env: Env, epoch: u64) -> Option<Attestation> {
         Self::load_attestation(&env, epoch)
+        Self::bump_instance(&env);
+        Self::bump_record(&env, epoch);
+        env.storage().persistent().get(&DataKey::Attestation(epoch))
     }
 
     pub fn latest(env: Env) -> Option<Attestation> {
+        Self::bump_instance(&env);
         let epoch: u64 = env.storage().instance().get(&DataKey::LatestEpoch)?;
         Self::load_attestation(&env, epoch)
+        Self::bump_record(&env, epoch);
+        env.storage().persistent().get(&DataKey::Attestation(epoch))
     }
 
     pub fn is_solvent(env: Env, epoch: u64) -> bool {
@@ -356,6 +375,24 @@ impl AttestarContract {
             solvent: Self::field(env, &fields, "solvent")?,
             timestamp: Self::field(env, &fields, "timestamp")?,
         })
+    // Renews the instance (and code) TTL. Instance storage holds `Admin`,
+    // `ReserveToken`, `ReserveHolder`, `Attestor`, `Vk` and `LatestEpoch`, all of which
+    // are read on nearly every call, so they are renewed together.
+    fn bump_instance(env: &Env) {
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD_LEDGERS, TTL_EXTEND_TO_LEDGERS);
+    }
+
+    // Renews a stored attestation, when that epoch is still retained. `extend_ttl`
+    // rejects keys that do not exist, so the presence check is required.
+    fn bump_record(env: &Env, epoch: u64) {
+        let key = DataKey::Attestation(epoch);
+        if env.storage().persistent().has(&key) {
+            env.storage()
+                .persistent()
+                .extend_ttl(&key, TTL_THRESHOLD_LEDGERS, TTL_EXTEND_TO_LEDGERS);
+        }
     }
 
     fn reserves(env: &Env) -> i128 {
@@ -534,6 +571,10 @@ impl AttestarContract {
 
         let persistent = env.storage().persistent();
         persistent.set(&DataKey::Attestation(epoch), &att);
+        env.storage()
+            .persistent()
+            .set(&DataKey::Attestation(epoch), &att);
+        Self::bump_record(env, epoch);
         env.storage().instance().set(&DataKey::LatestEpoch, &epoch);
 
         // Maintain a bounded, ordered index of the retained epochs. Appending the
