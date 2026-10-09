@@ -1,6 +1,13 @@
 import fs from "node:fs";
 import * as snarkjs from "snarkjs";
-import { MerkleSumTree, buildCircuitInput } from "../../sdk/dist/index.js";
+import {
+  MerkleSumTree,
+  buildCircuitInput,
+  encodeG1,
+  encodeG2,
+  fieldToBytes,
+  toHex,
+} from "../../sdk/dist/index.js";
 
 const DEPTH = 2;
 const BUILD = "build/solvency_test";
@@ -30,20 +37,18 @@ if (BigInt(publicSignals[0]) !== tree.root || BigInt(publicSignals[1]) !== tree.
   throw new Error("public signals do not match SDK root/total");
 }
 
-const be32 = (dec) => BigInt(dec).toString(16).padStart(64, "0");
-const g1 = (pt) => be32(pt[0]) + be32(pt[1]);
-const g2 = (pt) => be32(pt[0][1]) + be32(pt[0][0]) + be32(pt[1][1]) + be32(pt[1][0]);
-
+// All field-element and curve-point encoding is delegated to @attestar/sdk so
+// this script and the app share exactly one byte-level implementation.
 const hex = {
-  alpha: g1(vkey.vk_alpha_1),
-  beta: g2(vkey.vk_beta_2),
-  gamma: g2(vkey.vk_gamma_2),
-  delta: g2(vkey.vk_delta_2),
-  ic: vkey.IC.map(g1),
-  proof_a: g1(proof.pi_a),
-  proof_b: g2(proof.pi_b),
-  proof_c: g1(proof.pi_c),
-  pub: publicSignals.map((s) => be32(s)),
+  alpha: toHex(encodeG1(vkey.vk_alpha_1)),
+  beta: toHex(encodeG2(vkey.vk_beta_2)),
+  gamma: toHex(encodeG2(vkey.vk_gamma_2)),
+  delta: toHex(encodeG2(vkey.vk_delta_2)),
+  ic: vkey.IC.map((p) => toHex(encodeG1(p))),
+  proof_a: toHex(encodeG1(proof.pi_a)),
+  proof_b: toHex(encodeG2(proof.pi_b)),
+  proof_c: toHex(encodeG1(proof.pi_c)),
+  pub: publicSignals.map((s) => toHex(fieldToBytes(s))),
 };
 
 fs.writeFileSync(OUT_JSON, JSON.stringify(hex, null, 2));

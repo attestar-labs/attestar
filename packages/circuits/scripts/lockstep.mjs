@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import * as snarkjs from "snarkjs";
-import { MerkleSumTree, buildCircuitInput } from "../../sdk/dist/index.js";
+import { MerkleSumTree, buildCircuitInput, fieldToBytes, toHex } from "../../sdk/dist/index.js";
 
 const DEPTH = 2;
 const BUILD = "build/solvency_test";
@@ -32,6 +32,13 @@ const inclOk = await MerkleSumTree.verifyProof(incl);
 const rootMatch = circuitRoot === tree.root;
 const totalMatch = circuitTotal === tree.total;
 
+// Compare the circuit's public-signal bytes against the shared SDK encoder
+// (fieldToBytes) instead of a private re-implementation, so the build script
+// cannot silently drift from the app's encoding.
+const circuitTotalBytes = BigInt(circuitTotal).toString(16).padStart(64, "0");
+const totalEncodingMatch = toHex(fieldToBytes(tree.total)) === circuitTotalBytes;
+const rootEncodingMatch = toHex(fieldToBytes(tree.root)) === BigInt(circuitRoot).toString(16).padStart(64, "0");
+
 console.log("SDK root     :", tree.root.toString());
 console.log("circuit root :", circuitRoot.toString());
 console.log("SDK total    :", tree.total.toString());
@@ -39,10 +46,13 @@ console.log("circuit total:", circuitTotal.toString());
 console.log("");
 console.log("root match        :", rootMatch);
 console.log("total match       :", totalMatch);
+console.log("total encoding    :", totalEncodingMatch);
+console.log("root encoding     :", rootEncodingMatch);
 console.log("proof verifies    :", proofOk);
 console.log("inclusion verifies:", inclOk);
 
-const allOk = rootMatch && totalMatch && proofOk && inclOk && tree.total === 9500n;
+const allOk =
+  rootMatch && totalMatch && totalEncodingMatch && rootEncodingMatch && proofOk && inclOk && tree.total === 9500n;
 console.log("");
 console.log(allOk ? "LOCKSTEP OK" : "LOCKSTEP FAILED");
 process.exit(allOk ? 0 : 1);

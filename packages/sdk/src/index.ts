@@ -3,6 +3,7 @@ export { buildCircuitInput, buildPrivateInput } from "./witness.js";
 export { poseidon, getPoseidon } from "./poseidon.js";
 export {
   fieldToBytes,
+  encodeFieldElements,
   encodeG1,
   encodeG2,
   encodeProof,
