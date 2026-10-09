@@ -37,7 +37,7 @@ The repository is a pnpm workspace; the members are exactly those listed in
 - GitHub remote: https://github.com/attestar-labs/attestar.git (branch main).
 
 ### Progress log
-- 2026-06-20 (Day 1-2 done): toolchain installed in WSL (rustc 1.96, circom 2.2.3,
+- 2026-06-20 (Day 1-2 done): toolchain installed in WSL (rustc 1.96, circom 2.2.3 (toolchain; every circuit declares `pragma circom 2.1.6`),
   stellar-cli 27.0.0 from prebuilt binary; cargo-built stellar-cli failed on libdbus, so we use
   the GitHub release binary at `~/.cargo/bin/stellar`). soroban-sdk pinned to `27.0.0-rc.1`.
   Contract builds to wasm (5.8KB, 6 exports) and `cargo test` passes (2 tests). Circuit compiles
