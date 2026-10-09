@@ -273,15 +273,22 @@ cp apps/web/.env.example apps/web/.env.local
 
 Connect Freighter, then: **Activate verifier** (one-time), **Generate proof**, **Sign & publish** (SOLVENT), **Drain USDC**, re-publish (INSOLVENT). Switch roles from the header to verify inclusion as a holder and unlock disclosure as a regulator.
 
-Rebuild the ZK core and redeploy from scratch (WSL):
+Rebuild the ZK core and redeploy from scratch. Run these from the repository root unless a `cd`
+is shown; on Windows, run them inside WSL.
 
 ```bash
-# 1. circuit: compile + Groth16 trusted setup (depth 4 liabilities / depth 3 reserves)
+# 1. circuit: compile + Groth16 trusted setup for the production circuit
+#    (depth 4 liabilities / depth 3 reserves). scripts/build.sh takes the circuit name
+#    as $1; the package's own `pnpm build` script hardcodes the legacy `solvency`
+#    circuit, so invoke the script directly here.
 cd packages/circuits
-bash scripts/ptau.sh 16
-bash scripts/build.sh psolvency_demo
-node scripts/encode_vk.mjs psolvency_demo        # -> arg_vk.json (for the contract / web)
-node scripts/encode_p.mjs                         # -> Rust test fixtures (real proofs)
+bash scripts/ptau.sh 16                 # powers of tau. Tries the Google mirror first, then
+                                        # hermez (which returns 403), then generates locally.
+bash scripts/build.sh psolvency_demo    # -> build/psolvency_demo/ (psolvency_demo.zkey,
+                                        #    psolvency_demo.vkey.json,
+                                        #    psolvency_demo_js/psolvency_demo.wasm)
+node scripts/encode_vk.mjs psolvency_demo   # -> build/psolvency_demo/arg_vk.json (contract vkey)
+node scripts/encode_p.mjs                    # -> ../contracts/contracts/attestar/src/fixtures.rs
 
 # 2. contract: build + test against the real BN254 host crypto
 cd ../contracts && stellar contract build && cargo test -p attestar
@@ -305,6 +312,33 @@ is gitignored. Regenerate them with `bash scripts/build.sh psolvency_demo` from 
 (powers of tau first via `bash scripts/ptau.sh 16`), or copy them from a previous build. A CI guard
 (`.github/scripts/check-artifacts.sh`) fails any change that tracks a circuit artifact outside the
 two files above.
+# 3. deploy the contract, then initialize it with all four arguments. The demo uses the
+#    live USDC SAC as reserve_token, your Freighter address as reserve_holder, and a ZERO
+#    attestor so submit_attestation skips the custodian-signature check (the browser
+#    console sends res_sig = Buffer.alloc(64); set a real ed25519 attestor only once you
+#    can produce that signature).
+stellar contract deploy --wasm target/wasm32v1-none/release/attestar.wasm \
+  --source <your-key> --network testnet
+stellar contract invoke --id <ATTESTAR_ID> --source <your-key> --network testnet --send=yes -- \
+  initialize \
+    --admin <your-freighter-address> \
+    --reserve_token CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA \
+    --reserve_holder <your-freighter-address> \
+    --attestor 0000000000000000000000000000000000000000000000000000000000000000
+
+# 4. copy each proving artifact the app reads from its build output into place:
+#      packages/circuits/build/psolvency_demo/psolvency_demo_js/psolvency_demo.wasm
+#        -> apps/web/public/circuit/psolvency_demo.wasm
+#      packages/circuits/build/psolvency_demo/psolvency_demo.zkey
+#        -> apps/web/public/circuit/psolvency_demo.zkey
+#      packages/circuits/build/psolvency_demo/arg_vk.json
+#        -> apps/web/lib/vk.json
+#    then point apps/web/.env.local at the new contract id.
+```
+
+Before the first publish, open the app as the Issuer and click **Activate verifier** once; that
+signs `set_verifier` with the vkey for the circuit you just built. Publishing fails with
+`VerifierNotSet` until it is done.
 
 See [`docs/DESIGN.md`](docs/DESIGN.md) for the original design notes and the research that validated the idea.
 
