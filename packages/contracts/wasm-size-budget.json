@@ -1,0 +1,5 @@
+{
+  "_comment": "Baseline wasm sizes measured from the committed Soroban workspace (stellar contract build). CI fails when attestar.wasm grows by more than max_growth_percent.",
+  "baseline_bytes": 9607,
+  "max_growth_percent": 5
+}
