@@ -13,8 +13,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Guard against committed circuit artifacts
-      run: bash .github/scripts/check-artifacts.sh
+    - name: Check .env.example covers every process.env read
+      run: bash .github/scripts/check-env-example.sh
   scripts:
     name: shellcheck
     runs-on: ubuntu-latest
