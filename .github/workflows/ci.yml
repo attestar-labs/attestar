@@ -1,38 +1,48 @@
 name: CI
-
 on:
   push:
-    branches: [main]
-  pull_request:
-
+    branches:
+    - main
+  pull_request: null
 permissions:
   contents: read
-
 jobs:
   lint:
     name: typecheck
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+    - name: Install workspace
+      run: pnpm install --no-frozen-lockfile
+    - name: Type-check every package
+      run: pnpm -r typecheck
+  scripts:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install shellcheck
+      run: 'sudo apt-get update
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.10.0
+        sudo apt-get install -y shellcheck
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: pnpm
-
-      - name: Install workspace
-        run: pnpm install --no-frozen-lockfile
-
-      # Runs the `typecheck` script in every workspace package that defines one.
-      # apps/web type-checks against the built workspace packages, so its script
-      # compiles @attestar/sdk, attestar-client and usdc-client first; the three
-      # library packages only need `tsc --noEmit`.
-      - name: Type-check every package
-        run: pnpm -r typecheck
+        '
+    - name: Lint every tracked shell script
+      run: "set -euo pipefail\nshellcheck --version\n# `git ls-files` already excludes\
+        \ ignored/generated trees (node_modules,\n# build, target, dist); filter them\
+        \ defensively in case a script is ever\n# tracked under one.\nmapfile -t files\
+        \ < <(git ls-files '*.sh' | grep -vE '(^|/)(node_modules|build|target|dist)/'\
+        \ || true)\nif [ \"${#files[@]}\" -eq 0 ]; then\n  echo \"no shell scripts\
+        \ found\"\n  exit 0\nfi\nprintf 'checking %s\\n' \"${files[@]}\"\nshellcheck\
+        \ \"${files[@]}\"\n"
