@@ -7,10 +7,14 @@
 Name: **Attestar** (attestation + the Stellar star motif). Project folder:
 `D:\Programming\hacks\attestar`. Tagline: "Continuous, provable solvency."
 
-Last updated: 2026-06-20
-Status: ZK pipeline working end to end. SDK-circuit lockstep proven; Groth16 proof verified
-on-chain on Stellar testnet (real tx) and tampered input rejected. Remaining: end-to-end
-submit_attestation flow with a reserve token, the web app, and the demo video.
+Last updated: 2026-10-09
+Status: ZK pipeline working end to end and the web app shipped. SDK-circuit lockstep proven;
+Groth16 proof verified on-chain on Stellar testnet (real tx) and tampered input rejected. The
+end-to-end `submit_attestation` flow with a Stellar Asset Contract reserve token is exercised by
+10 tests in `packages/contracts/contracts/attestar/src/test.rs`; the Next.js app under `apps/web/`
+implements the issuer, holder, and regulator views, including the regulator selective-disclosure
+console (`apps/web/components/regulator-view.tsx` + `apps/web/lib/disclosure.ts`). Remaining: the
+demo video and optional polish.
 
 ### Repo state (2026-06-20, scaffold)
 - `packages/circuits`: Circom `SolvencyTree(DEPTH, BITS)` (Merkle-sum tree, Poseidon, per-leaf
@@ -86,9 +90,14 @@ submit_attestation flow with a reserve token, the web app, and the demo video.
   - serverExternalPackages in next.config keeps snarkjs/circomlibjs/stellar-sdk out of the bundle.
 
 ### What remains
-- Record the 2-3 min demo video (script at docs/DEMO_SCRIPT.md).
-- Optional polish: auditor selective-disclosure view, more holders in the demo, copy pass.
-- The submission is otherwise complete: open-source repo, working ZK-on-Stellar, clear README.
+- Record the 2-3 minute demo video. No script is committed yet: `docs/DEMO_SCRIPT.md` is named by
+  earlier notes but does not exist in the tree, so it has to be written first.
+- Optional polish, none of it blocking a submission:
+  - More than the 16 holders the depth-4 liabilities tree supports
+    (`apps/web/lib/prover-browser.ts`, `LIAB_DEPTH = 4`), or a deeper tree for a larger demo.
+  - A copy pass over the web UI (`apps/web/components/`).
+- The auditor selective-disclosure view is no longer outstanding: it lives in
+  `apps/web/components/regulator-view.tsx` (AES-GCM, `apps/web/lib/disclosure.ts`).
 
 ---
 
