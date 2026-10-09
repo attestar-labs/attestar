@@ -5,7 +5,7 @@ set -euo pipefail
 export PATH="$HOME/.cargo/bin:$PATH"
 
 cd "$(dirname "$0")/.."
-CID="${1:-CDEGNQIHKDYXE7PNV6SHJ6OENSVDPLUEL5KS7TDHTJQIAQBBJMT4U5QS}"
+CID="${1:-CD36EVFKGZH23JLRQMJZPG7XKPNO6ZVK67GHN2RQJG5VM6CVYTE2GRDH}"
 D=build/solvency_test
 
 node scripts/mkargs.mjs
