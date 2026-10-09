@@ -88,20 +88,30 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Install Rust toolchain (rustfmt + clippy)
+    - name: Install Rust toolchain (wasm target)
       uses: dtolnay/rust-toolchain@stable
       with:
-        components: rustfmt, clippy
+        targets: wasm32v1-none
     - name: Cache Rust build
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: packages/contracts -> target
-    - name: Check formatting
-      working-directory: packages/contracts
-      run: cargo fmt --all --check
-    - name: Lint
-      working-directory: packages/contracts
-      run: cargo clippy --workspace --all-targets -- -D warnings
+    - name: Install stellar-cli
+      run: "curl -sSfL -o stellar-cli.tar.gz \\\n  https://github.com/stellar/stellar-cli/releases/download/v27.0.0/stellar-cli-27.0.0-x86_64-unknown-linux-gnu.tar.gz\n\
+        tar -xzf stellar-cli.tar.gz stellar\nsudo install -m 0755 stellar /usr/local/bin/stellar\n\
+        stellar --version\n"
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Build contracts
+      run: pnpm contracts:build
+    - name: Fail on wasm size regression
+      run: bash .github/scripts/check-wasm-size.sh
   security:
     name: security
     runs-on: ubuntu-latest
