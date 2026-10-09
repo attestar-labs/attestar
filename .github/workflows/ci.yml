@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    name: contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      # Cache the Cargo registry and the build directory so a soroban-sdk bump
+      # does not re-download and re-compile the whole dependency tree per run.
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: packages/contracts -> target
+
+      # Runs the attestar registry tests and the ten real-BN254 groth16 tests
+      # against the committed fixture proofs in src/fixtures.rs. On failure the
+      # runner prints the .snap.new diff instead of overwriting test_snapshots/.
+      - name: Test contracts
+        working-directory: packages/contracts
+        run: cargo test --workspace
