@@ -1,3 +1,4 @@
+import { assertLeafAmount } from "./errors.js";
 import type { Holder, CircuitInput, PrivateCircuitInput } from "./types.js";
 
 export function buildCircuitInput(holders: Holder[], depth: number): CircuitInput {
@@ -9,6 +10,7 @@ export function buildCircuitInput(holders: Holder[], depth: number): CircuitInpu
   const userIds: string[] = [];
   for (let i = 0; i < capacity; i++) {
     const h = holders[i];
+    if (h) assertLeafAmount(h.balance, `holder ${h.userId.toString()}`);
     balances.push((h ? h.balance : 0n).toString());
     userIds.push((h ? h.userId : 0n).toString());
   }
@@ -24,6 +26,7 @@ function padVector(items: Holder[], depth: number) {
   const userIds: string[] = [];
   for (let i = 0; i < capacity; i++) {
     const h = items[i];
+    if (h) assertLeafAmount(h.balance, `source ${h.userId.toString()}`);
     balances.push((h ? h.balance : 0n).toString());
     userIds.push((h ? h.userId : 0n).toString());
   }

@@ -1,9 +1,11 @@
 import { poseidon } from "./poseidon.js";
+import { assertLeafAmount } from "./errors.js";
 import type { Holder, SumNode, InclusionProof } from "./types.js";
 
 const ZERO_HOLDER: Holder = { userId: 0n, balance: 0n };
 
 async function leafNode(h: Holder): Promise<SumNode> {
+  assertLeafAmount(h.balance, `holder ${h.userId.toString()}`);
   return { hash: await poseidon([h.userId, h.balance]), sum: h.balance };
 }
 
