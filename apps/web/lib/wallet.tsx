@@ -9,8 +9,9 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { StellarWalletsKit, Networks } from "@creit.tech/stellar-wallets-kit";
+import { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
 import { FreighterModule, FREIGHTER_ID } from "@creit.tech/stellar-wallets-kit/modules/freighter";
+import { networkForPassphrase } from "./network";
 
 export type Role = "issuer" | "holder" | "regulator";
 
@@ -43,7 +44,7 @@ function ensureInit() {
   StellarWalletsKit.init({
     modules: [new FreighterModule()],
     selectedWalletId: FREIGHTER_ID,
-    network: Networks.TESTNET,
+    network: networkForPassphrase(PASSPHRASE),
   });
   initialized = true;
 }
