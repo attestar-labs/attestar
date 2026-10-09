@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { encodeVerifyingKey, toHex } from "../../sdk/dist/index.js";
 
-const circuit = process.argv[2] || "solvency_demo";
+const circuit = process.argv[2] || "psolvency_demo";
 const dir = `build/${circuit}`;
 const vkey = JSON.parse(fs.readFileSync(`${dir}/${circuit}.vkey.json`, "utf8"));
 

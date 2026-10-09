@@ -26,8 +26,9 @@ Records a per-epoch solvency attestation for a token issuer.
 
 - Contract: `CDEGNQIHKDYXE7PNV6SHJ6OENSVDPLUEL5KS7TDHTJQIAQBBJMT4U5QS`
 - Real proof verifies (on-chain tx): https://stellar.expert/explorer/testnet/tx/94573ab6e3c3cf8768c6553fc8b819ead12fe13170e2168b86d56426c9ab4c58
-- Reproduce: `bash ../circuits/scripts/verify_testnet.sh` (real proof returns `true`, tampered
-  input returns `false`).
+- Reproduce (production circuit): `node ../circuits/scripts/encode_p.mjs` regenerates
+  `src/fixtures.rs`, then `cargo test -p attestar` checks the real proofs against the host crypto.
+  (The legacy depth-2 `verify_testnet.sh` was removed together with the single-tree circuits.)
 
 ### Public signal layout
 
