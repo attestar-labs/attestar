@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Compile a circuit and run the Groth16 trusted setup.
-# Usage: bash scripts/build.sh <circuit_name>   (e.g. solvency or solvency_test)
+# Usage: bash scripts/build.sh <circuit_name>   (default: psolvency_demo)
 # Env: PTAU (path to a phase-1 ptau). Defaults to build/ptau/pot<POWER>.ptau.
 set -euo pipefail
 
-NAME="${1:-solvency}"
+NAME="${1:-psolvency_demo}"
 SRC="circuits/${NAME}.circom"
 OUT="build/${NAME}"
 SNARKJS="${SNARKJS:-npx snarkjs}"
