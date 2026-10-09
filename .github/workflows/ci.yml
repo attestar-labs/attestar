@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref. A rapid series of pushes to one branch
+# replaces its own in-flight build instead of queueing a full workspace build
+# per push. Distinct refs get distinct groups, so a run on another branch is
+# never cancelled by this one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build SDK and client bindings
+        run: pnpm --filter @attestar/sdk --filter attestar-client --filter usdc-client build
+
+      - name: Test web
+        run: pnpm --filter @attestar/web test
+
+      - name: Build web
+        run: pnpm --filter @attestar/web build
