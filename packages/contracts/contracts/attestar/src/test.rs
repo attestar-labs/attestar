@@ -4,7 +4,9 @@ use super::*;
 use crate::fixtures;
 use crate::groth16::{self, Proof, VerifyingKey};
 use ed25519_dalek::{Signer, SigningKey};
+use soroban_sdk::testutils::storage::{Instance as _, Persistent as _};
 use soroban_sdk::testutils::Address as _;
+use soroban_sdk::testutils::Ledger as _;
 use soroban_sdk::token::StellarAssetClient;
 use soroban_sdk::{vec, Address, BytesN, Env, Vec};
 
@@ -205,6 +207,55 @@ fn rejects_faked_onchain_reserves() {
             .try_submit_attestation(&1, &proof, &liab, &res, &fixtures::S_SOLVENT, &sig);
 
     assert_eq!(result, Err(Ok(Error::InvalidProof)));
+}
+
+#[test]
+fn renews_ttls_on_every_hot_path_access() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+    h.token_admin.mint(&h.reserve_holder, &fixtures::S_ONCHAIN);
+    submit_solvent(&h, 1);
+
+    // The recording test host revives an expired persistent entry on access, so
+    // archival cannot be observed as a missing record here; the recorded TTL is
+    // what tells us whether the contract renewed an entry.
+    let cid = h.client.address.clone();
+    let record = DataKey::Attestation(1);
+    let ttl_at_write = env.as_contract(&cid, || env.storage().persistent().get_ttl(&record));
+    let instance_at_write = env.as_contract(&cid, || env.storage().instance().get_ttl());
+    assert!(
+        ttl_at_write > TTL_THRESHOLD_LEDGERS,
+        "the record written by submit_attestation must get a renewed TTL"
+    );
+    assert!(
+        instance_at_write > TTL_THRESHOLD_LEDGERS,
+        "submit_attestation must renew the instance (admin, verifier, latest pointer)"
+    );
+
+    // Let both entries age down to the renewal threshold...
+    let burn = ttl_at_write.min(instance_at_write) - TTL_THRESHOLD_LEDGERS;
+    env.ledger().set_sequence_number(env.ledger().sequence() + burn);
+    let record_before = env.as_contract(&cid, || env.storage().persistent().get_ttl(&record));
+    let instance_before = env.as_contract(&cid, || env.storage().instance().get_ttl());
+    assert!(record_before <= TTL_THRESHOLD_LEDGERS);
+    assert!(instance_before <= TTL_THRESHOLD_LEDGERS);
+
+    // ...and a single read puts the life back on both of them.
+    assert_eq!(h.client.latest().unwrap().epoch, 1);
+    assert!(h.client.is_solvent(&1));
+    assert!(h.client.get_attestation(&1).is_some());
+    let ttl_after = env.as_contract(&cid, || env.storage().persistent().get_ttl(&record));
+    let instance_after = env.as_contract(&cid, || env.storage().instance().get_ttl());
+    assert!(
+        ttl_after > TTL_THRESHOLD_LEDGERS,
+        "reading the latest record must renew it"
+    );
+    assert!(
+        instance_after > TTL_THRESHOLD_LEDGERS,
+        "reading must renew the instance as well"
+    );
+    assert!(ttl_after > record_before);
+    assert!(instance_after > instance_before);
 }
 
 #[test]
