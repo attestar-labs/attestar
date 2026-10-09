@@ -70,8 +70,29 @@ export function saveDisclosure(payload: DisclosurePayload) {
   window.localStorage.setItem(DISCLOSURE_KEY, JSON.stringify(payload));
 }
 
+function isDisclosurePayload(value: unknown): value is DisclosurePayload {
+  if (typeof value !== "object" || value === null) return false;
+  const p = value as Record<string, unknown>;
+  return (
+    typeof p.salt === "string" &&
+    p.salt.length > 0 &&
+    typeof p.iv === "string" &&
+    p.iv.length > 0 &&
+    typeof p.ct === "string" &&
+    p.ct.length > 0 &&
+    typeof p.epoch === "string"
+  );
+}
+
 export function loadDisclosure(): DisclosurePayload | null {
   if (typeof window === "undefined") return null;
   const raw = window.localStorage.getItem(DISCLOSURE_KEY);
-  return raw ? (JSON.parse(raw) as DisclosurePayload) : null;
+  if (!raw) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return isDisclosurePayload(parsed) ? parsed : null;
 }
