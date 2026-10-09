@@ -1,14 +1,26 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import { WalletBar } from "@/components/wallet-bar";
 import { RolePicker } from "@/components/role-picker";
-import { IssuerView } from "@/components/issuer-view";
-import { HolderView } from "@/components/holder-view";
-import { RegulatorView } from "@/components/regulator-view";
 import { explorerContract } from "@/lib/format";
 import { ATTESTAR_ID } from "@/lib/config";
 import type { Role } from "@/lib/wallet";
+
+// The issuer and holder consoles pull in the proving stack (`@attestar/sdk`, and `snarkjs`
+// via its dynamic import) transitively. Load them on demand so the role picker — the first
+// screen — never downloads or parses any of it before it is interactive.
+const IssuerView = dynamic(() => import("@/components/issuer-view").then((m) => m.IssuerView), {
+  ssr: false,
+});
+const HolderView = dynamic(() => import("@/components/holder-view").then((m) => m.HolderView), {
+  ssr: false,
+});
+const RegulatorView = dynamic(
+  () => import("@/components/regulator-view").then((m) => m.RegulatorView),
+  { ssr: false },
+);
 
 export default function Home() {
   const [role, setRole] = useState<Role | null>(null);
