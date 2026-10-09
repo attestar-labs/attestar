@@ -230,7 +230,15 @@ pnpm --filter attestar-client --filter usdc-client build
 pnpm web:dev        # http://localhost:3100
 ```
 
-`apps/web/.env.local` is preconfigured with the deployed contract IDs above. Connect Freighter, then: **Activate verifier** (one-time), **Generate proof**, **Sign & publish** (SOLVENT), **Drain USDC**, re-publish (INSOLVENT). Switch roles from the header to verify inclusion as a holder and unlock disclosure as a regulator.
+The contract IDs in the table above are compiled into `apps/web/lib/config.ts` as defaults, so the app runs against the live testnet deployment on a fresh clone with no `.env.local`. To point it at a different deployment, copy the committed example and edit it:
+
+```bash
+cp apps/web/.env.example apps/web/.env.local
+```
+
+`apps/web/.env.example` documents every variable the app reads: `NEXT_PUBLIC_ATTESTAR_ID`, `NEXT_PUBLIC_TOKEN_ID`, `NEXT_PUBLIC_RESERVE_HOLDER`, `NEXT_PUBLIC_SINK_ADDRESS`, `NEXT_PUBLIC_RPC_URL` and `NEXT_PUBLIC_NETWORK_PASSPHRASE` (read in `apps/web/lib/config.ts`), plus `NEXT_PUBLIC_EXPLORER` and `NEXT_PUBLIC_USDC_DECIMALS` (read in `apps/web/lib/format.ts`). `.env.local` is gitignored; `packages/contracts/scripts/setup_web_demo.sh` regenerates it — including your issuer secret — when you redeploy.
+
+Connect Freighter, then: **Activate verifier** (one-time), **Generate proof**, **Sign & publish** (SOLVENT), **Drain USDC**, re-publish (INSOLVENT). Switch roles from the header to verify inclusion as a holder and unlock disclosure as a regulator.
 
 Rebuild the ZK core and redeploy from scratch (WSL):
 
