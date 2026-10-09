@@ -28,6 +28,7 @@ import {
   type LedgerEntry,
 } from "@/lib/ledger";
 import { encryptDisclosure, saveDisclosure, DEFAULT_VIEW_KEY } from "@/lib/disclosure";
+import { saveInclusionProofs } from "@/lib/inclusion-store";
 import { Panel, Eyebrow, Stat } from "@/components/panel";
 import { SolvencySeal } from "@/components/solvency-seal";
 import { baseToUsdc, usdcToBase, shortHash, explorerTx } from "@/lib/format";
@@ -177,6 +178,9 @@ export function IssuerView() {
     setTx(null);
     try {
       const p = await proveSolvencyPrivate(toHolders(ledger), toHolders(sources), reservesBase, setStage);
+      // Persist every holder's Merkle path so each holder can later fold their
+      // own path and compare it with the root the chain recorded.
+      saveInclusionProofs(p.inclusionProofs);
       setProof(p);
     } catch (e) {
       setError((e as Error).message);

@@ -7,6 +7,7 @@ import {
   encodeProof,
   fieldToBytes,
   type Holder,
+  type InclusionProof,
 } from "@attestar/sdk";
 
 export const LIAB_DEPTH = 4;
@@ -24,6 +25,9 @@ export interface PrivateProof {
   liabRootHex: string;
   resRootHex: string;
   solvent: boolean;
+  // One Merkle-sum path per holder, in the same order as `holders`, so the
+  // issuer can persist them for holders to verify against the on-chain root.
+  inclusionProofs: InclusionProof[];
 }
 
 export async function proveSolvencyPrivate(
@@ -46,6 +50,7 @@ export async function proveSolvencyPrivate(
   const enc = encodeProof(proof as Parameters<typeof encodeProof>[0]);
   const liabRootBytes = fieldToBytes(liabTree.root);
   const resRootBytes = fieldToBytes(resTree.root);
+  const inclusionProofs = holders.map((_, i) => liabTree.proofFor(i));
   onStage?.("done");
 
   return {
@@ -59,6 +64,7 @@ export async function proveSolvencyPrivate(
     liabRootHex: Buffer.from(liabRootBytes).toString("hex"),
     resRootHex: Buffer.from(resRootBytes).toString("hex"),
     solvent: publicSignals[2] === "1",
+    inclusionProofs,
   };
 }
 
