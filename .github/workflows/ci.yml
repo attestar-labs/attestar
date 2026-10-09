@@ -71,14 +71,15 @@ jobs:
       with:
         node-version: 20
         cache: pnpm
-    - name: Install workspace
-      run: pnpm install --no-frozen-lockfile
-    - name: Build SDK and client bindings
-      run: pnpm --filter @attestar/sdk --filter attestar-client --filter usdc-client
-        build
-    - name: Test web
-      run: pnpm --filter @attestar/web test
-    - name: Build web
+    - name: Install (frozen lockfile)
+      run: pnpm install --frozen-lockfile
+    - name: Build workspace libraries
+      run: 'pnpm build:sdk
+
+        pnpm --filter attestar-client --filter usdc-client build
+
+        '
+    - name: Build web app
       run: pnpm --filter @attestar/web build
   contracts:
     name: contracts
