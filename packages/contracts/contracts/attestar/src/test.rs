@@ -256,3 +256,18 @@ fn rejects_bad_custodian_signature() {
     h.client
         .submit_attestation(&1, &proof, &liab, &res, &fixtures::S_SOLVENT, &bad_sig);
 }
+
+#[test]
+fn fixtures_header_names_its_generator() {
+    // fixtures.rs is consumed by this module; encode_p.mjs owns it. The legacy
+    // scripts/encode.mjs must not overwrite it with its incompatible schema.
+    const FIXTURES: &str = include_str!("fixtures.rs");
+    assert!(
+        FIXTURES.contains("encode_p.mjs"),
+        "fixtures.rs must record that encode_p.mjs generated it"
+    );
+    assert!(
+        !FIXTURES.contains("scripts/encode.mjs"),
+        "fixtures.rs must not be the legacy encode.mjs fixture set"
+    );
+}
