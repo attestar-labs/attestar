@@ -17,6 +17,12 @@ pub enum Error {
     VerifierNotSet = 3,
     InvalidProof = 4,
     EpochExists = 5,
+    /// The liability or reserve commitment is the all-zero root.
+    ZeroRoot = 6,
+    /// The liability and reserve commitments are identical.
+    IdenticalRoots = 7,
+    /// The on-chain reserve figure is negative.
+    NegativeReserves = 8,
 }
 
 #[contracttype]
@@ -107,13 +113,17 @@ impl AttestarContract {
             return Err(Error::EpochExists);
         }
 
+        // Reject cheaply, witness-freely invalid public signals before running the
+        // (expensive) pairing check.
+        let onchain_reserves = Self::reserves(&env);
+        Self::validate_public_signals(&env, &liab_root, &res_root, onchain_reserves)?;
+
         let vk: VerifyingKey = env
             .storage()
             .instance()
             .get(&DataKey::Vk)
             .ok_or(Error::VerifierNotSet)?;
 
-        let onchain_reserves = Self::reserves(&env);
         let public_inputs =
             Self::public_inputs(&env, &liab_root, &res_root, solvent, onchain_reserves);
         if !groth16::verify(&env, &vk, &proof, &public_inputs) {
@@ -157,6 +167,34 @@ impl AttestarContract {
             .instance()
             .get(&DataKey::Admin)
             .ok_or(Error::NotInitialized)
+    }
+
+    /// Rejects public signals that are cheaply, witness-freely invalid, before
+    /// the expensive pairing verification runs. Each invariant has its own error.
+    ///
+    /// Only relations expressible from the on-chain inputs are checked here. The
+    /// shipped circuit exposes `[liab_root, res_root, solvent, onchain_reserves]`
+    /// and does not publish the liability total, so `solvent` cannot be
+    /// re-derived on chain; what the contract can enforce is that the two
+    /// commitments are non-degenerate (non-zero) and distinct, and that the
+    /// reserve figure is non-negative.
+    fn validate_public_signals(
+        env: &Env,
+        liab_root: &BytesN<32>,
+        res_root: &BytesN<32>,
+        onchain_reserves: i128,
+    ) -> Result<(), Error> {
+        let zero = BytesN::from_array(env, &[0u8; 32]);
+        if *liab_root == zero || *res_root == zero {
+            return Err(Error::ZeroRoot);
+        }
+        if liab_root == res_root {
+            return Err(Error::IdenticalRoots);
+        }
+        if onchain_reserves < 0 {
+            return Err(Error::NegativeReserves);
+        }
+        Ok(())
     }
 
     fn reserves(env: &Env) -> i128 {
