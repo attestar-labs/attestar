@@ -365,6 +365,8 @@ fn rotation_emits_event_and_keeps_previous_key() {
 
 #[test]
 fn either_registered_key_verifies_during_overlap_window() {
+#[test]
+fn record_stamps_current_schema_version() {
     let env = Env::default();
     let h = deploy(&env, true);
     h.token_admin.mint(&h.reserve_holder, &fixtures::S_ONCHAIN);
@@ -443,4 +445,42 @@ fn ended_overlap_window_rejects_the_retired_key() {
     );
 
     assert_eq!(result, Err(Ok(Error::UnknownAttestor)));
+    let att = submit_solvent(&h, 1);
+    assert_eq!(att.version, ATTESTATION_VERSION);
+
+    let read_back = h.client.get_attestation(&1).unwrap();
+    assert_eq!(read_back.version, ATTESTATION_VERSION);
+    assert_eq!(h.client.latest(), Some(read_back));
+}
+
+#[test]
+fn legacy_record_without_version_tag_is_still_readable() {
+    let env = Env::default();
+    let h = deploy(&env, true);
+
+    // Simulate a record written before the `version` tag existed by storing the
+    // pre-upgrade layout directly under the same key.
+    let legacy_epoch = 7u64;
+    h.env.as_contract(&h.contract_id, || {
+        let legacy = AttestationV1 {
+            epoch: legacy_epoch,
+            liab_root: bytesn(&h.env, &fixtures::S_LIAB_ROOT),
+            res_root: bytesn(&h.env, &fixtures::S_RES_ROOT),
+            onchain_reserves: fixtures::S_ONCHAIN,
+            solvent: true,
+            timestamp: 1234,
+        };
+        h.env
+            .storage()
+            .persistent()
+            .set(&DataKey::Attestation(legacy_epoch), &legacy);
+    });
+
+    let att = h.client.get_attestation(&legacy_epoch).unwrap();
+    assert_eq!(att.version, 1);
+    assert_eq!(att.epoch, legacy_epoch);
+    assert_eq!(att.timestamp, 1234);
+    assert_eq!(att.onchain_reserves, fixtures::S_ONCHAIN);
+    assert!(att.solvent);
+    assert!(h.client.is_solvent(&legacy_epoch));
 }

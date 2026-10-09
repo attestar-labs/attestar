@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Scales, Wallet, Key, LockKeyOpen, LockKey, EyeSlash } from "@phosphor-icons/react";
 import { useWallet } from "@/lib/wallet";
 import { attestarReader } from "@/lib/contracts";
+import { decodeAttestation } from "@/lib/attestation-record";
 import { decryptDisclosure, loadDisclosure, DEFAULT_VIEW_KEY } from "@/lib/disclosure";
 import { sumBase, type LedgerEntry } from "@/lib/ledger";
 import { Panel, Eyebrow, Stat } from "@/components/panel";
@@ -53,12 +54,13 @@ export function RegulatorView() {
     try {
       const latest = await attestarReader().latest().then((t) => t.result);
       if (latest) {
+        const record = decodeAttestation(latest);
         setPub({
-          epoch: latest.epoch.toString(),
-          solvent: latest.solvent,
-          liabRootHex: Buffer.from(latest.liab_root).toString("hex"),
-          resRootHex: Buffer.from(latest.res_root).toString("hex"),
-          onchainBase: BigInt(latest.onchain_reserves),
+          epoch: record.epoch.toString(),
+          solvent: record.solvent,
+          liabRootHex: Buffer.from(record.liabRoot).toString("hex"),
+          resRootHex: Buffer.from(record.resRoot).toString("hex"),
+          onchainBase: record.onchainBase,
         });
       } else {
         // A fresh deployment (or a chain reset) has no attestation: clear the
