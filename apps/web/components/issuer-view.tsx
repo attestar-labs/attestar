@@ -15,7 +15,7 @@ import {
   Circle,
 } from "@phosphor-icons/react";
 import { useWallet } from "@/lib/wallet";
-import { attestarSigner, tokenSigner, attestarReader, tokenReader } from "@/lib/contracts";
+import { attestarSigner, tokenSigner, attestarReader, tokenReader, verifierIsSet } from "@/lib/contracts";
 import { verifyingKey } from "@/lib/vkey-browser";
 import { proveSolvencyPrivate, type PrivateProof, type ProveStage } from "@/lib/prover-browser";
 import {
@@ -55,7 +55,9 @@ export function IssuerView() {
   const [reservesBase, setReservesBase] = useState<bigint>(0n);
   const [proof, setProof] = useState<PrivateProof | null>(null);
   const [stage, setStage] = useState<ProveStage | null>(null);
-  const [verifierSet, setVerifierSet] = useState(false);
+  const [verifierSet, setVerifierSet] = useState(
+    () => typeof window !== "undefined" && window.localStorage.getItem(VERIFIER_FLAG) === "1",
+  );
   const [transferAmount, setTransferAmount] = useState("8");
   const [busy, setBusy] = useState<string | null>(null);
   const [tx, setTx] = useState<{ label: string; hash?: string } | null>(null);
@@ -64,8 +66,26 @@ export function IssuerView() {
   useEffect(() => {
     setLedger(loadLedger());
     setSources(loadSources());
-    setVerifierSet(window.localStorage.getItem(VERIFIER_FLAG) === "1");
   }, []);
+
+  // The contract's stored verifying key is the source of truth for whether the
+  // one-time setup panel is still needed; localStorage is only a cache.
+  const refreshVerifier = useCallback(async () => {
+    try {
+      const onchain = await verifierIsSet();
+      setVerifierSet(onchain);
+      if (onchain) window.localStorage.setItem(VERIFIER_FLAG, "1");
+      else window.localStorage.removeItem(VERIFIER_FLAG);
+    } catch {
+      // An unreadable chain must not hide the one-time setup; show it so the
+      // issuer can recover by activating the verifier.
+      setVerifierSet(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshVerifier();
+  }, [refreshVerifier]);
 
   const liabilitiesBase = useMemo(() => sumBase(ledger), [ledger]);
   const offchainBase = useMemo(() => sumBase(sources), [sources]);
@@ -141,8 +161,7 @@ export function IssuerView() {
     try {
       const at = await attestarSigner(addr, signTransaction).set_verifier({ vk: verifyingKey });
       const sent = await at.signAndSend();
-      window.localStorage.setItem(VERIFIER_FLAG, "1");
-      setVerifierSet(true);
+      await refreshVerifier();
       setTx({ label: "Verifier activated on-chain", hash: sent.sendTransactionResponse?.hash });
     } catch (e) {
       setError((e as Error).message);

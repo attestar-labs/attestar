@@ -38,6 +38,13 @@ export function attestarReader(publicKey: string = READER) {
   return new Attestar({ contractId: ATTESTAR_ID, networkPassphrase: PASS, rpcUrl: RPC, publicKey });
 }
 
+// Reads the contract's real verifying-key state so the issuer console can decide
+// whether the one-time setup panel is still needed. localStorage is only a cache.
+export async function verifierIsSet(): Promise<boolean> {
+  const tx = await attestarReader().verifier_is_set();
+  return Boolean(tx.result);
+}
+
 export function tokenReader(publicKey: string = READER) {
   return new Token({ contractId: TOKEN_ID, networkPassphrase: PASS, rpcUrl: RPC, publicKey });
 }

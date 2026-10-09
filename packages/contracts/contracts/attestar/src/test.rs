@@ -107,6 +107,16 @@ fn init_sets_up_empty_registry() {
 }
 
 #[test]
+fn verifier_is_set_reflects_set_verifier() {
+    let env = Env::default();
+    let unset = deploy(&env, false);
+    assert!(!unset.client.verifier_is_set());
+
+    let set = deploy(&env, true);
+    assert!(set.client.verifier_is_set());
+}
+
+#[test]
 fn double_init_fails() {
     let env = Env::default();
     let h = deploy(&env, true);
