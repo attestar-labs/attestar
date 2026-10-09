@@ -15,6 +15,7 @@ export interface InclusionProof {
   leafHash: bigint;
   siblings: SumNode[];
   pathBits: number[];
+  depth: number;
   root: bigint;
   total: bigint;
 }
