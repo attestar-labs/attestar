@@ -46,3 +46,62 @@ jobs:
         \ || true)\nif [ \"${#files[@]}\" -eq 0 ]; then\n  echo \"no shell scripts\
         \ found\"\n  exit 0\nfi\nprintf 'checking %s\\n' \"${files[@]}\"\nshellcheck\
         \ \"${files[@]}\"\n"
+  sdk:
+    name: sdk
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+    - name: Install workspace
+      run: pnpm install --no-frozen-lockfile
+    - name: Build SDK
+      run: pnpm --filter @attestar/sdk build
+  web:
+    name: web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+    - name: Install workspace
+      run: pnpm install --no-frozen-lockfile
+    - name: Build SDK and client bindings
+      run: pnpm --filter @attestar/sdk --filter attestar-client --filter usdc-client
+        build
+    - name: Build web
+      run: pnpm --filter @attestar/web build
+  contracts:
+    name: contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+    - name: Cache Rust build
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: packages/contracts -> target
+    - name: Test contracts
+      working-directory: packages/contracts
+      run: cargo test --workspace
