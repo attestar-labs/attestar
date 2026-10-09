@@ -19,6 +19,16 @@ pub enum Error {
     EpochExists = 5,
 }
 
+/// Number of epochs whose attestation records are retained on chain.
+///
+/// The registry keeps a rolling window of the most recent `MAX_EPOCHS`
+/// attestations. Once the window is full, publishing a new epoch prunes the
+/// oldest record (and its persistent entry) so that neither the epoch index nor
+/// the number of live attestation entries grows without bound as the contract
+/// ages. At one attestation per day this retains roughly three months of
+/// history; older epochs must be read from an off-chain archive.
+pub const MAX_EPOCHS: u32 = 90;
+
 #[contracttype]
 pub enum DataKey {
     Admin,
@@ -27,6 +37,8 @@ pub enum DataKey {
     Attestor,
     Vk,
     LatestEpoch,
+    /// Bounded index of the epochs whose attestation records are still retained.
+    Epochs,
     Attestation(u64),
 }
 
@@ -227,10 +239,26 @@ impl AttestarContract {
             timestamp: env.ledger().timestamp(),
         };
 
-        env.storage()
-            .persistent()
-            .set(&DataKey::Attestation(epoch), &att);
+        let persistent = env.storage().persistent();
+        persistent.set(&DataKey::Attestation(epoch), &att);
         env.storage().instance().set(&DataKey::LatestEpoch, &epoch);
+
+        // Maintain a bounded, ordered index of the retained epochs. Appending the
+        // new epoch and dropping the oldest entries once the window is exceeded
+        // keeps `Epochs` at most `MAX_EPOCHS` long and bounds the number of live
+        // `Attestation` entries, so the cost of a publish does not grow with the
+        // age of the contract. `latest` and `get_attestation` keep returning the
+        // correct values for every epoch still inside the window.
+        let mut epochs: Vec<u64> = persistent
+            .get(&DataKey::Epochs)
+            .unwrap_or_else(|| Vec::new(env));
+        epochs.push_back(epoch);
+        while epochs.len() > MAX_EPOCHS {
+            if let Some(oldest) = epochs.pop_front() {
+                persistent.remove(&DataKey::Attestation(oldest));
+            }
+        }
+        persistent.set(&DataKey::Epochs, &epochs);
 
         AttestationPosted {
             epoch,
