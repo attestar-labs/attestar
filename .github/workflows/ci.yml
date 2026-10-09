@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          # The scanner walks the whole commit history, so it needs more than
+          # the default single-commit checkout.
+          fetch-depth: 0
+
+      - name: Scan history for committed secrets
+        run: bash .github/scripts/secret-scan.sh
