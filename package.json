@@ -8,7 +8,11 @@
     "build:sdk": "pnpm --filter @attestar/sdk build",
     "circuits:build": "pnpm --filter @attestar/circuits build",
     "web:dev": "pnpm --filter @attestar/web dev",
-    "contracts:build": "stellar contract build --manifest-path packages/contracts/Cargo.toml"
+    "contracts:build": "stellar contract build --manifest-path packages/contracts/Cargo.toml",
+    "test": "pnpm -r test"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
 }

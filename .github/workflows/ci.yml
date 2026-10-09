@@ -131,6 +131,27 @@ jobs:
         python3 "$GITHUB_WORKSPACE/.github/scripts/cargo-audit-gate.py" "$RUNNER_TEMP/cargo-audit.json"
 
         '
+  tests:
+    name: tests
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Setup pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.10.0
+    - name: Setup Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+        cache: pnpm
+    - name: Install workspace
+      run: pnpm install --frozen-lockfile
+    - name: Build the SDK
+      run: pnpm build:sdk
+    - name: Run all package tests
+      run: pnpm -r test
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
