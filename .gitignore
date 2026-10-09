@@ -41,3 +41,7 @@ Thumbs.db
 branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat
+
+# npm lockfiles: this workspace is pnpm-managed (pnpm-lock.yaml). A stray
+# package-lock.json describes a different resolution and would drift silently.
+package-lock.json
