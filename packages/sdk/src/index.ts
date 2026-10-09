@@ -4,6 +4,7 @@ export { poseidon, getPoseidon } from "./poseidon.js";
 export { MAX_LEAF_AMOUNT, LeafAmountRangeError, assertLeafAmount } from "./errors.js";
 export {
   fieldToBytes,
+  encodeFieldElements,
   encodeG1,
   encodeG2,
   encodeProof,

@@ -31,6 +31,14 @@ export function fieldToBytes(value: bigint | string): Uint8Array {
   return toBytes32BE(v);
 }
 
+// Encodes a whole list of field elements to their concatenated 32-byte
+// big-endian form. This is the single home for field-element-to-bytes: the
+// circuit build scripts import it rather than re-implementing the conversion.
+// An empty input yields an empty byte array.
+export function encodeFieldElements(values: readonly (bigint | string)[]): Uint8Array {
+  return concat(values.map(fieldToBytes));
+}
+
 // G1 affine -> be(X) || be(Y), 64 bytes.
 export function encodeG1(point: string[]): Uint8Array {
   return concat([toBytes32BE(BigInt(point[0])), toBytes32BE(BigInt(point[1]))]);
