@@ -25,12 +25,19 @@ export function explorerContract(id: string): string {
 }
 
 
+// A strict non-negative decimal: digits, then an optional fractional part.
+// Signs, exponents, thousands separators and bare punctuation are rejected so a
+// typo fails loudly instead of silently changing the proven liability total.
+const USDC_AMOUNT_RE = /^\d+(\.\d+)?$/;
+
 export function usdcToBase(v: string): bigint {
-  const [whole, frac = ""] = (v || "0").trim().split(".");
+  const raw = (v ?? "").trim();
+  if (!USDC_AMOUNT_RE.test(raw)) {
+    throw new Error(`Invalid USDC amount: ${JSON.stringify(v)}`);
+  }
+  const [whole, frac = ""] = raw.split(".");
   const fracPadded = (frac + "0".repeat(USDC_DECIMALS)).slice(0, USDC_DECIMALS);
-  const w = whole.replace(/[^0-9]/g, "") || "0";
-  const f = fracPadded.replace(/[^0-9]/g, "") || "0";
-  return BigInt(w) * 10n ** BigInt(USDC_DECIMALS) + BigInt(f);
+  return BigInt(whole) * 10n ** BigInt(USDC_DECIMALS) + BigInt(fracPadded);
 }
 
 export function baseToUsdc(v: string | bigint | null | undefined): string {
