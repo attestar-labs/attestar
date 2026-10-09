@@ -79,12 +79,23 @@ export class MerkleSumTree {
       leafHash: leaf.hash,
       siblings,
       pathBits,
+      depth: this.depth,
       root: this.root,
       total: this.total,
     };
   }
 
   static async verifyProof(proof: InclusionProof): Promise<boolean> {
+    // The path length is attacker-supplied: without pinning it to the depth the
+    // proof claims, an empty `siblings` array folds nothing and the final
+    // comparison is trivially satisfied by root = leafHash, total = balance.
+    if (!Number.isInteger(proof.depth) || proof.depth < 1) return false;
+    if (!Array.isArray(proof.siblings) || proof.siblings.length !== proof.depth) return false;
+    if (!Array.isArray(proof.pathBits) || proof.pathBits.length !== proof.depth) return false;
+    for (const bit of proof.pathBits) {
+      if (bit !== 0 && bit !== 1) return false;
+    }
+
     let node: SumNode = {
       hash: await poseidon([proof.userId, proof.balance]),
       sum: proof.balance,
