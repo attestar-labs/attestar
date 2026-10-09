@@ -1,3 +1,5 @@
+import { USDC_DECIMALS } from "@/lib/config";
+
 export function fmtAmount(v: string | bigint | null | undefined): string {
   if (v === null || v === undefined) return "—";
   try {
@@ -22,7 +24,6 @@ export function explorerContract(id: string): string {
   return `${EXPLORER}/contract/${id}`;
 }
 
-const USDC_DECIMALS = Number(process.env.NEXT_PUBLIC_USDC_DECIMALS ?? "7");
 
 export function usdcToBase(v: string): bigint {
   const [whole, frac = ""] = (v || "0").trim().split(".");
