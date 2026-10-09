@@ -60,6 +60,10 @@ export function RegulatorView() {
           resRootHex: Buffer.from(latest.res_root).toString("hex"),
           onchainBase: BigInt(latest.onchain_reserves),
         });
+      } else {
+        // A fresh deployment (or a chain reset) has no attestation: clear the
+        // panel so switching between contract ids never shows a stale epoch.
+        setPub(null);
       }
     } catch (e) {
       setError((e as Error).message);
@@ -128,6 +132,9 @@ export function RegulatorView() {
             <Row k="On-chain USDC" v={pub ? `${baseToUsdc(pub.onchainBase)} USDC` : "—"} />
             <Row k="Compositions & totals" v="hidden" cls="text-slate" />
           </dl>
+          {!pub && (
+            <p className="font-mono text-[10px] text-slate">No attestation published yet.</p>
+          )}
         </div>
 
         <div className="flex flex-col gap-3 bg-ink p-5">
