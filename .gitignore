@@ -2,6 +2,10 @@
 node_modules/
 .pnpm-store/
 
+# npm lockfiles are not used in this pnpm workspace
+package-lock.json
+npm-shrinkwrap.json
+
 # js builds
 dist/
 .next/
