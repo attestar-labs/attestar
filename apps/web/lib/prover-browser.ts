@@ -17,6 +17,49 @@ const ZKEY = "/circuit/psolvency_demo.zkey";
 
 export type ProveStage = "tree" | "witness" | "proving" | "done";
 
+// snarkjs emits public signals in the circuit's declared order. For
+// PrivateSolvency that is [liab_root, res_root, solvent, onchain_reserves].
+const PUBLIC_SIGNAL_COUNT = 4;
+
+function equalBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+// Cross-checks the signals against the trees the browser actually built, so a
+// rebuilt circuit with a different signal order cannot make the app submit a
+// mismatched proof. Returns the solvent verdict from the same validated array.
+export function checkPublicSignals(
+  publicSignals: string[],
+  liabRoot: bigint,
+  resRoot: bigint,
+  onchainReserves: bigint,
+): boolean {
+  if (!Array.isArray(publicSignals) || publicSignals.length !== PUBLIC_SIGNAL_COUNT) {
+    throw new Error(
+      `Unexpected public signal count: expected ${PUBLIC_SIGNAL_COUNT}, got ${
+        publicSignals?.length ?? 0
+      }`,
+    );
+  }
+  if (!equalBytes(fieldToBytes(BigInt(publicSignals[0])), fieldToBytes(liabRoot))) {
+    throw new Error("Circuit liabilities root public signal does not match the local liabilities tree");
+  }
+  if (!equalBytes(fieldToBytes(BigInt(publicSignals[1])), fieldToBytes(resRoot))) {
+    throw new Error("Circuit reserves root public signal does not match the local reserves tree");
+  }
+  const signalOnchain = BigInt(publicSignals[3]);
+  if (signalOnchain !== onchainReserves) {
+    throw new Error(
+      `Circuit on-chain reserves public signal (${signalOnchain}) does not match the supplied reserves (${onchainReserves})`,
+    );
+  }
+  return publicSignals[2] === "1";
+}
+
 export interface PrivateProof {
   proof: { a: Buffer; b: Buffer; c: Buffer };
   liabRoot: Buffer;
@@ -43,6 +86,10 @@ export async function proveSolvencyPrivate(
   const snarkjs = await import("snarkjs");
   const { proof, publicSignals } = await snarkjs.groth16.fullProve(input, WASM, ZKEY);
 
+  // Validate the proof's own public signals against the trees before we build
+  // the transaction, and derive the verdict from the validated array.
+  const solvent = checkPublicSignals(publicSignals, liabTree.root, resTree.root, onchainReserves);
+
   const enc = encodeProof(proof as Parameters<typeof encodeProof>[0]);
   const liabRootBytes = fieldToBytes(liabTree.root);
   const resRootBytes = fieldToBytes(resTree.root);
@@ -58,7 +105,7 @@ export async function proveSolvencyPrivate(
     resRoot: Buffer.from(resRootBytes),
     liabRootHex: Buffer.from(liabRootBytes).toString("hex"),
     resRootHex: Buffer.from(resRootBytes).toString("hex"),
-    solvent: publicSignals[2] === "1",
+    solvent,
   };
 }
 
