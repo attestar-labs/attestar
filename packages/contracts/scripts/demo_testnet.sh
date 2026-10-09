@@ -71,6 +71,9 @@ stellar contract invoke --id "$ATT" "$SRC" "$NET" --send=yes -- \
 echo "==> draining 3000 reserves (issuer secretly withdraws)"
 stellar contract invoke --id "$TOKEN" $SRC $NET --send=yes -- burn --from "$DEPLOYER" --amount 3000 >/dev/null
 
+echo "==> draining 3000 reserves (issuer secretly withdraws)"
+stellar contract invoke --id "$TOKEN" $SRC $NET --send=yes -- burn --from "$DEPLOYER" --amount 3000 >/dev/null
+
 echo "==> epoch 2: publish attestation (on-chain 2000 + off-chain 1000 < liabilities 9500)"
 stellar contract invoke --id "$ATT" $SRC $NET --send=yes -- \
   submit_attestation --epoch 2 --proof "$(cat "$I_PROOF")" \
