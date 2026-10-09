@@ -165,7 +165,11 @@ sequenceDiagram
 
 ## The honest boundary
 
-Zero-knowledge proves two things trustlessly: the liabilities committed in the tree, and the on-chain reserves the contract reads itself. It cannot prove that an **off-chain bank balance exists**; that figure enters the proof as a value the issuer commits to, attestable by a custodian ed25519 signature (the contract supports this path). Attestar makes everything around the monthly audit continuous and verifiable, and binds the off-chain figure to a signature, but it complements the accounting attestation rather than replacing the auditor. We state this plainly because understanding the boundary is the difference between a real privacy product and an overclaim.
+Zero-knowledge proves two things trustlessly: the liabilities committed in the tree, and the on-chain reserves the contract reads itself. It cannot prove that an **off-chain bank balance exists**.
+
+The contract implements the path for that figure: `submit_attestation` takes a 64-byte `res_sig`, and when an attestor is configured `verify_reserve_sig` checks an ed25519 signature over the message `epoch || res_root` against it (`packages/contracts/contracts/attestar/src/lib.rs`). **That path is not exercised by the shipped UI.** The browser console always submits `res_sig = Buffer.alloc(64)` (all zero bytes) — see `apps/web/components/issuer-view.tsx` — and the demo deployments initialise the contract with a zero attestor, which makes `verify_reserve_sig` return early and skip the check. So today the off-chain reserve figure is bound only by the ZK commitment, not by a custodian signature.
+
+Attestar makes everything around the monthly audit continuous and verifiable, and the contract is ready to bind the off-chain figure to a real signature once the console produces one, but it complements the accounting attestation rather than replacing the auditor. We state this plainly because understanding the boundary is the difference between a real privacy product and an overclaim.
 
 ## What is real vs. illustrative
 
@@ -175,7 +179,7 @@ Zero-knowledge proves two things trustlessly: the liabilities committed in the t
 | Reserves (on-chain portion) | **Real Circle USDC** on testnet, read trustlessly by the contract. Drain is a real Freighter-signed USDC transfer. |
 | Wallet signing | **Real Freighter** for all three roles. |
 | Holder liability ledger and off-chain reserve sources | **Illustrative example data**, edited in-browser. In production these are the issuer's real private records. They are *meant* to be private and off-chain; that is the point of the ZK. |
-| Off-chain fiat existence | Enters as a committed/attested figure (the honest boundary above). |
+| Off-chain fiat existence | **Contract-only.** The committed figure is bound by the ZK proof; the custodian ed25519 path (`res_sig` over `epoch || res_root`, `verify_reserve_sig`) is implemented but never exercised — the UI submits an all-zero `res_sig` and the demo uses a zero attestor (see the honest boundary above). |
 
 ## Repository layout
 
