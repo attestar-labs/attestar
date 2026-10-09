@@ -1,40 +1,41 @@
 {
-    "name":  "@attestar/web",
-    "version":  "0.0.0",
-    "private":  true,
-    "scripts":  {
-                    "dev":  "next dev -p 3100",
-                    "build":  "pnpm --filter @attestar/sdk --filter attestar-client --filter usdc-client build \u0026\u0026 next build",
-                    "start":  "next start",
-                    "lint":  "next lint",
-                    "test":  "vitest run"
-                },
-    "dependencies":  {
-                         "@attestar/sdk":  "workspace:*",
-                         "@creit.tech/stellar-wallets-kit":  "^2.3.0",
-                         "@phosphor-icons/react":  "^2.1.7",
-                         "@stellar/stellar-sdk":  "^14.5.0",
-                         "attestar-client":  "workspace:*",
-                         "clsx":  "^2.1.1",
-                         "usdc-client":  "workspace:*",
-                         "next":  "^15.1.0",
-                         "react":  "^19.0.0",
-                         "react-dom":  "^19.0.0",
-                         "server-only":  "^0.0.1",
-                         "snarkjs":  "^0.7.5",
-                         "tailwind-merge":  "^2.5.4"
-                     },
-    "devDependencies":  {
-                            "@tailwindcss/postcss":  "^4.0.0",
-                            "@types/node":  "^22.9.0",
-                            "@types/react":  "^19.0.0",
-                            "@types/react-dom":  "^19.0.0",
-                            "tailwindcss":  "^4.0.0",
-                            "typescript":  "^5.6.3",
-                            "vitest":  "^1.6.0",
-                            "@testing-library/react":  "^15.0.0",
-                            "@testing-library/jest-dom":  "^6.4.2",
-                            "jsdom":  "^24.0.0",
-                            "@vitejs/plugin-react":  "^4.2.1"
-                        }
+    "name": "@attestar/web",
+    "version": "0.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "next dev -p 3100",
+        "build": "pnpm --filter @attestar/sdk --filter attestar-client --filter usdc-client build && next build",
+        "start": "next start",
+        "lint": "next lint",
+        "test": "vitest run",
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {
+        "@attestar/sdk": "workspace:*",
+        "@creit.tech/stellar-wallets-kit": "^2.3.0",
+        "@phosphor-icons/react": "^2.1.7",
+        "@stellar/stellar-sdk": "^14.5.0",
+        "attestar-client": "workspace:*",
+        "clsx": "^2.1.1",
+        "usdc-client": "workspace:*",
+        "next": "^15.1.0",
+        "react": "^19.0.0",
+        "react-dom": "^19.0.0",
+        "server-only": "^0.0.1",
+        "snarkjs": "^0.7.5",
+        "tailwind-merge": "^2.5.4"
+    },
+    "devDependencies": {
+        "@tailwindcss/postcss": "^4.0.0",
+        "@types/node": "^22.9.0",
+        "@types/react": "^19.0.0",
+        "@types/react-dom": "^19.0.0",
+        "tailwindcss": "^4.0.0",
+        "typescript": "^5.6.3",
+        "vitest": "^1.6.0",
+        "@testing-library/react": "^15.0.0",
+        "@testing-library/jest-dom": "^6.4.2",
+        "jsdom": "^24.0.0",
+        "@vitejs/plugin-react": "^4.2.1"
+    }
 }
