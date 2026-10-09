@@ -43,7 +43,19 @@ export const Errors = {
   2: {message:"AlreadyInitialized"},
   3: {message:"VerifierNotSet"},
   4: {message:"InvalidProof"},
-  5: {message:"EpochExists"}
+  5: {message:"EpochExists"},
+  /**
+   * The issuer's on-chain reserve balance is negative.
+   */
+  6: {message:"NegativeReserves"},
+  /**
+   * One of the committed Merkle roots is all zeroes.
+   */
+  7: {message:"ZeroRoot"},
+  /**
+   * The liability and reserve commitments are the same value.
+   */
+  8: {message:"IdenticalRoots"}
 }
 
 export type DataKey = {tag: "Admin", values: void} | {tag: "ReserveToken", values: void} | {tag: "ReserveHolder", values: void} | {tag: "Attestor", values: void} | {tag: "Vk", values: void} | {tag: "LatestEpoch", values: void} | {tag: "Attestation", values: readonly [u64]};
@@ -129,7 +141,7 @@ export class Client extends ContractClient {
   }
   constructor(public readonly options: ContractClientOptions) {
     super(
-      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAABQAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAAEkFscmVhZHlJbml0aWFsaXplZAAAAAAAAgAAAAAAAAAOVmVyaWZpZXJOb3RTZXQAAAAAAAMAAAAAAAAADEludmFsaWRQcm9vZgAAAAQAAAAAAAAAC0Vwb2NoRXhpc3RzAAAAAAU=",
+      new ContractSpec([ "AAAABAAAAAAAAAAAAAAABUVycm9yAAAAAAAACAAAAAAAAAAOTm90SW5pdGlhbGl6ZWQAAAAAAAEAAAAAAAAAEkFscmVhZHlJbml0aWFsaXplZAAAAAAAAgAAAAAAAAAOVmVyaWZpZXJOb3RTZXQAAAAAAAMAAAAAAAAADEludmFsaWRQcm9vZgAAAAQAAAAAAAAAC0Vwb2NoRXhpc3RzAAAAAAUAAAAyVGhlIGlzc3VlcidzIG9uLWNoYWluIHJlc2VydmUgYmFsYW5jZSBpcyBuZWdhdGl2ZS4AAAAAABBOZWdhdGl2ZVJlc2VydmVzAAAABgAAADBPbmUgb2YgdGhlIGNvbW1pdHRlZCBNZXJrbGUgcm9vdHMgaXMgYWxsIHplcm9lcy4AAAAIWmVyb1Jvb3QAAAAHAAAAOVRoZSBsaWFiaWxpdHkgYW5kIHJlc2VydmUgY29tbWl0bWVudHMgYXJlIHRoZSBzYW1lIHZhbHVlLgAAAAAAAA5JZGVudGljYWxSb290cwAAAAAACA==",
         "AAAAAgAAAAAAAAAAAAAAB0RhdGFLZXkAAAAABwAAAAAAAAAAAAAABUFkbWluAAAAAAAAAAAAAAAAAAAMUmVzZXJ2ZVRva2VuAAAAAAAAAAAAAAANUmVzZXJ2ZUhvbGRlcgAAAAAAAAAAAAAAAAAACEF0dGVzdG9yAAAAAAAAAAAAAAACVmsAAAAAAAAAAAAAAAAAC0xhdGVzdEVwb2NoAAAAAAEAAAAAAAAAC0F0dGVzdGF0aW9uAAAAAAEAAAAG",
         "AAAAAQAAAAAAAAAAAAAAC0F0dGVzdGF0aW9uAAAAAAYAAAAAAAAABWVwb2NoAAAAAAAABgAAAAAAAAAJbGlhYl9yb290AAAAAAAD7gAAACAAAAAAAAAAEG9uY2hhaW5fcmVzZXJ2ZXMAAAALAAAAAAAAAAhyZXNfcm9vdAAAA+4AAAAgAAAAAAAAAAdzb2x2ZW50AAAAAAEAAAAAAAAACXRpbWVzdGFtcAAAAAAAAAY=",
         "AAAAAAAAAAAAAAAGbGF0ZXN0AAAAAAAAAAAAAQAAA+gAAAfQAAAAC0F0dGVzdGF0aW9uAA==",

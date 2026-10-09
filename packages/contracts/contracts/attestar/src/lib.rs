@@ -17,12 +17,12 @@ pub enum Error {
     VerifierNotSet = 3,
     InvalidProof = 4,
     EpochExists = 5,
-    /// The liability or reserve commitment is the all-zero root.
-    ZeroRoot = 6,
-    /// The liability and reserve commitments are identical.
-    IdenticalRoots = 7,
-    /// The on-chain reserve figure is negative.
-    NegativeReserves = 8,
+    /// The issuer's on-chain reserve balance is negative.
+    NegativeReserves = 6,
+    /// One of the committed Merkle roots is all zeroes.
+    ZeroRoot = 7,
+    /// The liability and reserve commitments are the same value.
+    IdenticalRoots = 8,
 }
 
 #[contracttype]
@@ -97,6 +97,10 @@ impl AttestarContract {
     // must match the proof exactly or verification fails. When an attestor is set,
     // a custodian ed25519 signature over (epoch || res_root) attests the off-chain
     // reserve composition.
+    //
+    // Before the pairing, the public signals are also checked against the invariants
+    // the circuit itself relies on (see `check_implied_solvency`), so a verified key
+    // from a mismatched or relaxed circuit build cannot record a contradictory verdict.
     pub fn submit_attestation(
         env: Env,
         epoch: u64,
@@ -113,17 +117,14 @@ impl AttestarContract {
             return Err(Error::EpochExists);
         }
 
-        // Reject cheaply, witness-freely invalid public signals before running the
-        // (expensive) pairing check.
-        let onchain_reserves = Self::reserves(&env);
-        Self::validate_public_signals(&env, &liab_root, &res_root, onchain_reserves)?;
-
         let vk: VerifyingKey = env
             .storage()
             .instance()
             .get(&DataKey::Vk)
             .ok_or(Error::VerifierNotSet)?;
 
+        let onchain_reserves = Self::reserves(&env);
+        Self::check_implied_solvency(&liab_root, &res_root, onchain_reserves)?;
         let public_inputs =
             Self::public_inputs(&env, &liab_root, &res_root, solvent, onchain_reserves);
         if !groth16::verify(&env, &vk, &proof, &public_inputs) {
@@ -169,39 +170,40 @@ impl AttestarContract {
             .ok_or(Error::NotInitialized)
     }
 
-    /// Rejects public signals that are cheaply, witness-freely invalid, before
-    /// the expensive pairing verification runs. Each invariant has its own error.
-    ///
-    /// Only relations expressible from the on-chain inputs are checked here. The
-    /// shipped circuit exposes `[liab_root, res_root, solvent, onchain_reserves]`
-    /// and does not publish the liability total, so `solvent` cannot be
-    /// re-derived on chain; what the contract can enforce is that the two
-    /// commitments are non-degenerate (non-zero) and distinct, and that the
-    /// reserve figure is non-negative.
-    fn validate_public_signals(
-        env: &Env,
-        liab_root: &BytesN<32>,
-        res_root: &BytesN<32>,
-        onchain_reserves: i128,
-    ) -> Result<(), Error> {
-        let zero = BytesN::from_array(env, &[0u8; 32]);
-        if *liab_root == zero || *res_root == zero {
-            return Err(Error::ZeroRoot);
-        }
-        if liab_root == res_root {
-            return Err(Error::IdenticalRoots);
-        }
-        if onchain_reserves < 0 {
-            return Err(Error::NegativeReserves);
-        }
-        Ok(())
-    }
-
     fn reserves(env: &Env) -> i128 {
         let reserve_token: Address = env.storage().instance().get(&DataKey::ReserveToken).unwrap();
         let reserve_holder: Address =
             env.storage().instance().get(&DataKey::ReserveHolder).unwrap();
         token::TokenClient::new(env, &reserve_token).balance(&reserve_holder)
+    }
+
+    // Witness-free checks on the public signals this call supplies.
+    //
+    // The circuit enforces all three - each leaf is range-checked with `Num2Bits(64)`
+    // and the two committed roots are distinct sums - but the contract is where the
+    // verdict becomes readable history, and a verifying key from a mismatched or
+    // relaxed circuit build would otherwise be enough to record an economically false
+    // attestation. These comparisons cost nothing next to a BN254 pairing.
+    fn check_implied_solvency(
+        liab_root: &BytesN<32>,
+        res_root: &BytesN<32>,
+        onchain_reserves: i128,
+    ) -> Result<(), Error> {
+        if onchain_reserves < 0 {
+            return Err(Error::NegativeReserves);
+        }
+        // A Merkle-sum root of a non-empty tree is a Poseidon hash and can never be
+        // the zero field element, so a zero commitment means the signal is malformed.
+        let zero = [0u8; 32];
+        if liab_root.to_array() == zero || res_root.to_array() == zero {
+            return Err(Error::ZeroRoot);
+        }
+        // Liabilities and reserves are different sums over different leaves; equal
+        // commitments mean the two signals describe the same tree.
+        if liab_root == res_root {
+            return Err(Error::IdenticalRoots);
+        }
+        Ok(())
     }
 
     fn public_inputs(

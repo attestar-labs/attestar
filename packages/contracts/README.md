@@ -22,6 +22,27 @@ Records a per-epoch solvency attestation for a token issuer.
   attestation (`ed25519_verify`), solvency comparison, events, getters.
 - `verify_proof(vk, proof, public_inputs)`: a stateless, reusable on-chain Groth16 verifier.
 
+### Rejected at the contract
+
+The circuit binds every public signal, but the contract also checks the invariants the
+circuit relies on before it spends a pairing on the proof, so a verifying key from a
+mismatched or relaxed circuit build cannot record a contradictory verdict:
+
+| Code | Error | Rejected when |
+| --- | --- | --- |
+| 1 | `NotInitialized` | the admin key is unset |
+| 2 | `AlreadyInitialized` | `initialize` is called twice |
+| 3 | `VerifierNotSet` | `submit_attestation` runs before `set_verifier` |
+| 4 | `InvalidProof` | the Groth16 proof does not match the public signals |
+| 5 | `EpochExists` | that epoch already has a record |
+| 6 | `NegativeReserves` | the issuer's on-chain reserve balance is negative |
+| 7 | `ZeroRoot` | `liab_root` or `res_root` is the zero field element |
+| 8 | `IdenticalRoots` | `liab_root` and `res_root` are the same commitment |
+
+Codes 6–8 are checked against the signals the same call supplies, before verification;
+the solvency verdict itself is left to the circuit, because whether reserves cover
+liabilities cannot be re-derived on-chain without the witness.
+
 ### Live on testnet
 
 - Contract: `CDEGNQIHKDYXE7PNV6SHJ6OENSVDPLUEL5KS7TDHTJQIAQBBJMT4U5QS`
