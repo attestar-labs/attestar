@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Fails when a `process.env.X` read is not documented in apps/web/.env.example.
+      - name: Check .env.example covers every process.env read
+        run: bash .github/scripts/check-env-example.sh
