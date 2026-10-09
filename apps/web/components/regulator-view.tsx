@@ -6,7 +6,7 @@ import { Scales, Wallet, Key, LockKeyOpen, LockKey, EyeSlash } from "@phosphor-i
 import { useWallet } from "@/lib/wallet";
 import { attestarReader } from "@/lib/contracts";
 import { decryptDisclosure, loadDisclosure, DEFAULT_VIEW_KEY } from "@/lib/disclosure";
-import type { LedgerEntry } from "@/lib/ledger";
+import { sumBase, type LedgerEntry } from "@/lib/ledger";
 import { Panel, Eyebrow, Stat } from "@/components/panel";
 import { baseToUsdc, shortHash, usdcToBase } from "@/lib/format";
 
@@ -25,8 +25,20 @@ interface Revealed {
   solvent: boolean;
 }
 
-function sumUsdc(entries: LedgerEntry[]): bigint {
-  return entries.reduce((a, e) => a + usdcToBase(e.balance), 0n);
+// Returns a message for the first disclosed row whose balance cannot be
+// converted, so a package written by an older build renders an error instead of
+// throwing during render. Summing itself goes through the shared ledger helper.
+function firstUnparseable(entries: LedgerEntry[]): string | null {
+  for (const e of entries) {
+    try {
+      usdcToBase(e.balance);
+    } catch (err) {
+      return `Disclosed row "${e.label || "unnamed"}" has an unparseable balance (${e.balance}): ${
+        (err as Error).message
+      }`;
+    }
+  }
+  return null;
 }
 
 export function RegulatorView() {
@@ -79,8 +91,11 @@ export function RegulatorView() {
     }
   }
 
-  const liabTotal = revealed ? sumUsdc(revealed.ledger) : 0n;
-  const offchainTotal = revealed ? sumUsdc(revealed.sources) : 0n;
+  const liabilityRows = revealed?.ledger ?? [];
+  const sourceRows = revealed?.sources ?? [];
+  const disclosureError = revealed ? firstUnparseable([...liabilityRows, ...sourceRows]) : null;
+  const liabTotal = revealed ? sumBase(liabilityRows) : 0n;
+  const offchainTotal = revealed ? sumBase(sourceRows) : 0n;
   const onchainTotal = revealed ? BigInt(revealed.onchain) : 0n;
 
   return (
@@ -178,6 +193,9 @@ export function RegulatorView() {
             disclosure package (AES-GCM) with the view key.
           </p>
           {error && <p className="font-mono text-sm text-failed" aria-live="polite">{error}</p>}
+          {disclosureError && (
+            <p className="font-mono text-sm text-failed" aria-live="polite">{disclosureError}</p>
+          )}
           {revealed && (
             <div className="grid gap-3 sm:grid-cols-2">
               <Stat label="Disclosed accounts" value={revealed.ledger.length + revealed.sources.length} />
