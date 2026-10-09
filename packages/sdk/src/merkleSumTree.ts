@@ -1,5 +1,6 @@
 import { poseidon } from "./poseidon.js";
 import { assertLeafAmount } from "./errors.js";
+import { assertBalanceInRange } from "./range.js";
 import type { Holder, SumNode, InclusionProof } from "./types.js";
 
 const ZERO_HOLDER: Holder = { userId: 0n, balance: 0n };
@@ -34,6 +35,9 @@ export class MerkleSumTree {
     if (holders.length > capacity) {
       throw new Error(`too many holders: ${holders.length} > capacity ${capacity}`);
     }
+    // Reject balances the circuit cannot accept before any hashing happens, so
+    // the failure is a named row instead of an opaque in-circuit "Assert Failed".
+    holders.forEach((h, i) => assertBalanceInRange(h.balance, i));
     const padded: Holder[] = holders.slice();
     while (padded.length < capacity) padded.push(ZERO_HOLDER);
 
