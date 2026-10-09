@@ -152,12 +152,23 @@ export function IssuerView() {
   }
 
   async function generateProof() {
-    setBusy("Proving");
     setError(null);
     setProof(null);
     setTx(null);
+    // Convert both books before the proving spinner starts: a bad holder id or
+    // balance must surface as a row-level error, never as a snarkjs crash.
+    let holders: ReturnType<typeof toHolders>;
+    let sourceHolders: ReturnType<typeof toHolders>;
     try {
-      const p = await proveSolvencyPrivate(toHolders(ledger), toHolders(sources), reservesBase, setStage);
+      holders = toHolders(ledger);
+      sourceHolders = toHolders(sources);
+    } catch (e) {
+      setError((e as Error).message);
+      return;
+    }
+    setBusy("Proving");
+    try {
+      const p = await proveSolvencyPrivate(holders, sourceHolders, reservesBase, setStage);
       setProof(p);
     } catch (e) {
       setError((e as Error).message);
