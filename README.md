@@ -192,7 +192,7 @@ attestar/
 ├─ apps/
 │  └─ web/               Next.js 15 app: role picker, issuer/holder/regulator views,
 │                        client-side proving, Freighter signing, selective disclosure
-└─ docs/                 DESIGN.md (original design notes) + demo script
+└─ docs/                 DESIGN.md (original design notes)
 ```
 
 ## Tech stack
@@ -250,7 +250,7 @@ cd ../contracts && stellar contract build && cargo test -p attestar
 #    apps/web/public/circuit (psolvency_demo.wasm + .zkey) and apps/web/lib/vk.json.
 ```
 
-See [`docs/DESIGN.md`](docs/DESIGN.md) for the original design notes and the research that validated the idea.
+See [`docs/DESIGN.md`](docs/DESIGN.md) for the original design notes and the research that validated the idea. The reproducible end-to-end on-chain demo is [`packages/contracts/scripts/demo_testnet.sh`](packages/contracts/scripts/demo_testnet.sh).
 
 ## License
 

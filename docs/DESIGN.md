@@ -86,7 +86,7 @@ submit_attestation flow with a reserve token, the web app, and the demo video.
   - serverExternalPackages in next.config keeps snarkjs/circomlibjs/stellar-sdk out of the bundle.
 
 ### What remains
-- Record the 2-3 min demo video (script at docs/DEMO_SCRIPT.md).
+- Record the 2-3 min demo video (the reproducible on-chain flow is `packages/contracts/scripts/demo_testnet.sh`).
 - Optional polish: auditor selective-disclosure view, more holders in the demo, copy pass.
 - The submission is otherwise complete: open-source repo, working ZK-on-Stellar, clear README.
 
