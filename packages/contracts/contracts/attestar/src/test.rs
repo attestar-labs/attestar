@@ -229,7 +229,8 @@ fn rejects_faked_onchain_reserves() {
     let h = deploy(&env, true);
     // The proof commits to onchain = S_ONCHAIN; minting a different balance makes
     // the contract substitute the true (different) figure, so verification fails.
-    h.token_admin.mint(&h.reserve_holder, &(fixtures::S_ONCHAIN + 1));
+    h.token_admin
+        .mint(&h.reserve_holder, &(fixtures::S_ONCHAIN + 1));
 
     let proof = solvent_proof(&env);
     let liab = bytesn(&env, &fixtures::S_LIAB_ROOT);

@@ -98,15 +98,20 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-    - name: Install Rust toolchain
+    - name: Install Rust toolchain (rustfmt + clippy)
       uses: dtolnay/rust-toolchain@stable
+      with:
+        components: rustfmt, clippy
     - name: Cache Rust build
       uses: Swatinem/rust-cache@v2
       with:
         workspaces: packages/contracts -> target
-    - name: Test contracts
+    - name: Check formatting
       working-directory: packages/contracts
-      run: cargo test --workspace
+      run: cargo fmt --all --check
+    - name: Lint
+      working-directory: packages/contracts
+      run: cargo clippy --workspace --all-targets -- -D warnings
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
