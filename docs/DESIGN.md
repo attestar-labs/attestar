@@ -5,6 +5,8 @@
 > the demo, and the build plan.
 
 Name: **Attestar** (attestation + the Stellar star motif). Tagline: "Continuous, provable solvency."
+Name: **Attestar** (attestation + the Stellar star motif). Project folder:
+`D:\Programming\hacks\attestar`. Tagline: "Continuous, provable solvency."
 
 Last updated: 2026-10-09
 Status: ZK pipeline working end to end and the web app shipped. SDK-circuit lockstep proven;
@@ -39,6 +41,20 @@ The repository is a pnpm workspace; the members are exactly those listed in
   snarkjs is a local devDependency of `packages/circuits` (no global install). Machine-specific
   Windows/WSL setup is confined to Appendix A.
 - GitHub remote: https://github.com/attestar-labs/attestar.git (branch main).
+### Repo state (2026-06-20, scaffold)
+- `packages/circuits`: Circom `SolvencyTree(DEPTH, BITS)` (Merkle-sum tree, Poseidon, per-leaf
+  64-bit range checks), main at depth 10, test at depth 2, build + ptau scripts.
+- `packages/sdk`: TS `MerkleSumTree` (build / proofFor / verifyProof) and `buildCircuitInput`,
+  using circomlibjs Poseidon. Must stay byte-identical to the circuit hashing scheme.
+- `packages/contracts`: Soroban `AttestarContract` (init, set_verifier, submit_attestation,
+  get_attestation, latest, is_solvent). Implemented: registry, on-chain reserve read, ed25519
+  fiat-attestation, solvency compare, events. Pending: `groth16::verify` (traps until wired).
+- `apps/web`: minimal Next.js 15 landing shell (Tailwind v4), role cards for Issuer/Holder/Auditor.
+- Toolchain: WSL Ubuntu install of rustup + circom (from git) + stellar-cli running in background;
+  snarkjs is a local devDependency of `packages/circuits` (no global/sudo needed). Node/pnpm on
+  Windows side. Install script at `~/install_attestar.sh` in WSL, log at
+  `~/attestar-toolchain-install.log`.
+- GitHub remote: https://github.com/wildanrhmn/attestar.git (branch master).
 
 ### Progress log
 - 2026-06-20 (Day 1-2 done): toolchain installed in WSL (rustc 1.96, circom 2.2.3 (toolchain; every circuit declares `pragma circom 2.1.6`),
