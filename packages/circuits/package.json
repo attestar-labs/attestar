@@ -6,6 +6,7 @@
   "scripts": {
     "build": "bash scripts/build.sh solvency",
     "build:test": "bash scripts/build.sh solvency_test",
+    "build:demo": "bash scripts/build.sh psolvency_demo",
     "ptau": "bash scripts/ptau.sh"
   },
   "devDependencies": {

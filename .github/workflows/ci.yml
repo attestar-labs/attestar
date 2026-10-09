@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  circuits:
+    name: circuits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.10.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install workspace
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Install circom
+        run: |
+          curl -sSfL -o /tmp/circom \
+            https://github.com/iden3/circom/releases/download/v2.2.3/circom-linux-amd64
+          chmod +x /tmp/circom
+          sudo install -m 0755 /tmp/circom /usr/local/bin/circom
+          circom --version
+
+      - name: Provide powers of tau
+        working-directory: packages/circuits
+        run: bash scripts/ptau.sh 16
+
+      # `build:demo` compiles the production circuit (psolvency_demo) and runs
+      # the Groth16 trusted setup. A broken include or syntax error fails here.
+      - name: Compile psolvency_demo
+        run: pnpm --filter @attestar/circuits build:demo
+
+      - name: Report constraint count
+        working-directory: packages/circuits
+        run: |
+          {
+            echo "### psolvency_demo constraints"
+            echo ""
+            echo '```'
+            pnpm exec snarkjs r1cs info build/psolvency_demo/psolvency_demo.r1cs
+            echo '```'
+          } | tee -a "$GITHUB_STEP_SUMMARY"
