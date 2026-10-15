@@ -19,6 +19,19 @@ Open tasks are published as bounty issues on the issue tracker:
 2. Keep the change scoped to the issue's acceptance criteria.
 3. Run the existing test and lint commands before you commit.
 
+If either verifying-key fixture changes, check that the browser JSON and contract
+arrays still match. These checks use only Node.js; no dependencies or circuit build
+are required, and the SDK CI job runs both on every pull request:
+
+```sh
+node .github/scripts/check-verifying-key.mjs
+node --test .github/scripts/check-verifying-key.test.mjs
+```
+
+A mismatch reports the element (`alpha`, `beta`, `gamma`, `delta` or `ic[index]`)
+and its first differing zero-based byte offset. Regenerate both fixtures from the
+same verifying key if they drift.
+
 ## Opening a pull request
 
 - Reference the issue in the description, for example `Closes #12`.
