@@ -55,6 +55,8 @@ jobs:
       run: pnpm install --no-frozen-lockfile
     - name: Build SDK
       run: pnpm --filter @attestar/sdk build
+    - name: Check apps/web/lib/vk.json matches contract fixtures
+      run: node .github/scripts/check-vk-fixtures.mjs
   web:
     name: web
     runs-on: ubuntu-latest
@@ -112,6 +114,8 @@ jobs:
       run: pnpm contracts:build
     - name: Fail on wasm size regression
       run: bash .github/scripts/check-wasm-size.sh
+    - name: Check apps/web/lib/vk.json matches contract fixtures
+      run: node .github/scripts/check-vk-fixtures.mjs
   security:
     name: security
     runs-on: ubuntu-latest

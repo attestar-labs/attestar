@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
-import { MerkleSumTree, fieldToBytes } from "../src/index.ts";
+import { dirname, join, resolve } from "node:path";
+import { MerkleSumTree } from "../src/index.ts";
+import {
+  verifyVkMatchesFixtures,
+} from "../../../.github/scripts/check-vk-fixtures.mjs";
 
 // The same verifying key lives in apps/web/lib/vk.json (submitted by the issuer
 // console) and in packages/contracts/.../fixtures.rs (the contract's test
@@ -11,11 +16,15 @@ import { MerkleSumTree, fieldToBytes } from "../src/index.ts";
 // that the circuit's public roots were generated from.
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, "../../..");
-const vk = JSON.parse(readFileSync(resolve(repoRoot, "apps/web/lib/vk.json"), "utf8"));
-const fixtures = readFileSync(
-  resolve(repoRoot, "packages/contracts/contracts/attestar/src/fixtures.rs"),
-  "utf8",
+const vkPath = resolve(repoRoot, "apps/web/lib/vk.json");
+const fixturesPath = resolve(
+  repoRoot,
+  "packages/contracts/contracts/attestar/src/fixtures.rs",
 );
+const checkScriptPath = resolve(repoRoot, ".github/scripts/check-vk-fixtures.mjs");
+const vkRaw = readFileSync(vkPath, "utf8");
+const vk = JSON.parse(vkRaw);
+const fixtures = readFileSync(fixturesPath, "utf8");
 
 function hexToBytes(hex: string): number[] {
   const out: number[] = [];
@@ -53,6 +62,13 @@ function be32Hex(value: bigint): string {
   return value.toString(16).padStart(64, "0");
 }
 
+function flipHexByteAt(hex: string, byteOffset: number): string {
+  const pos = byteOffset * 2;
+  const orig = parseInt(hex.slice(pos, pos + 2), 16);
+  const flipped = (orig ^ 0xff).toString(16).padStart(2, "0");
+  return hex.slice(0, pos) + flipped + hex.slice(pos + 2);
+}
+
 describe("vk.json ↔ fixtures.rs lockstep", () => {
   it("matches every group element byte-for-byte", () => {
     expect(hexToBytes(vk.alpha)).toEqual(parseBytes(fixtures, "ALPHA"));
@@ -72,6 +88,63 @@ describe("vk.json ↔ fixtures.rs lockstep", () => {
   it("has exactly five IC points (four public signals plus one)", () => {
     expect(parseArrayOfArrays(fixtures, "IC")).toHaveLength(5);
     expect(vk.ic).toHaveLength(5);
+  });
+
+  it("passes check-vk-fixtures verification on the current repository tree", () => {
+    expect(verifyVkMatchesFixtures(vkRaw, fixtures)).toEqual({
+      alphaBytes: 64,
+      betaBytes: 128,
+      gammaBytes: 128,
+      deltaBytes: 128,
+      icCount: 5,
+    });
+  });
+
+  it("fails and names the mismatching element and first differing byte offset when one byte of vk.json is edited", () => {
+    for (const [field, offset] of [
+      ["alpha", 7],
+      ["beta", 42],
+      ["gamma", 99],
+      ["delta", 127],
+    ] as const) {
+      const mutated = {
+        ...vk,
+        [field]: flipHexByteAt(vk[field], offset),
+      };
+      expect(() => verifyVkMatchesFixtures(mutated, fixtures)).toThrow(
+        new RegExp(`mismatch in ${field} \\(${field.toUpperCase()}\\) at byte offset ${offset}\\b`),
+      );
+    }
+
+    for (let idx = 0; idx < vk.ic.length; idx++) {
+      const offset = idx * 11 + 3;
+      const mutatedIc = [...vk.ic];
+      mutatedIc[idx] = flipHexByteAt(vk.ic[idx], offset);
+      const mutated = { ...vk, ic: mutatedIc };
+      expect(() => verifyVkMatchesFixtures(mutated, fixtures)).toThrow(
+        new RegExp(`mismatch in ic\\[${idx}\\] \\(IC\\[${idx}\\]\\) at byte offset ${offset}\\b`),
+      );
+    }
+  });
+
+  it("exits non-zero from the CLI script and names the mismatching element when a byte of vk.json is edited", () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), "attestar-vk-check-"));
+    try {
+      const badVkPath = join(tmpDir, "vk.json");
+      const mutated = {
+        ...vk,
+        gamma: flipHexByteAt(vk.gamma, 19),
+      };
+      writeFileSync(badVkPath, JSON.stringify(mutated), "utf8");
+
+      const res = spawnSync(process.execPath, [checkScriptPath, badVkPath, fixturesPath], {
+        encoding: "utf8",
+      });
+      expect(res.status).not.toBe(0);
+      expect(res.stderr).toMatch(/mismatch in gamma \(GAMMA\) at byte offset 19/);
+    } finally {
+      rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 
   it("reproduces S_LIAB_ROOT from the HOLDERS fixture in encode_p.mjs", async () => {
