@@ -51,6 +51,10 @@ jobs:
       with:
         node-version: 20
         cache: pnpm
+    - name: Check web and contract verifying keys match
+      run: node .github/scripts/check-verifying-key.mjs
+    - name: Test verifying-key consistency guard
+      run: node --test .github/scripts/check-verifying-key.test.mjs
     - name: Install workspace
       run: pnpm install --no-frozen-lockfile
     - name: Build SDK
