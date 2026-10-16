@@ -84,4 +84,28 @@ describe("vk.json ↔ fixtures.rs lockstep", () => {
     const tree = await MerkleSumTree.build(holders, 4);
     expect(hexToBytes(be32Hex(tree.root))).toEqual(parseBytes(fixtures, "S_LIAB_ROOT"));
   });
+
+  it("check-vk-fixtures.mjs passes on the current tree and names the mismatching element and byte offset when 1 byte is edited", async () => {
+    // @ts-expect-error -- .mjs helper invoked by CI
+    const { verifyVkMatchesFixtures } = await import("../../../.github/scripts/check-vk-fixtures.mjs");
+    expect(() => verifyVkMatchesFixtures(vk, fixtures)).not.toThrow();
+
+    const mutatedGamma = {
+      ...vk,
+      gamma: "ff" + vk.gamma.slice(2),
+    };
+    expect(() => verifyVkMatchesFixtures(mutatedGamma, fixtures)).toThrow(
+      /Mismatch in gamma \(GAMMA\) at byte offset 0/,
+    );
+
+    const mutatedIc = {
+      ...vk,
+      ic: vk.ic.map((entry: string, idx: number) =>
+        idx === 2 ? entry.slice(0, 10) + (entry.slice(10, 12) === "00" ? "01" : "00") + entry.slice(12) : entry,
+      ),
+    };
+    expect(() => verifyVkMatchesFixtures(mutatedIc, fixtures)).toThrow(
+      /Mismatch in ic\[2\] \(IC\[2\]\) at byte offset 5/,
+    );
+  });
 });
