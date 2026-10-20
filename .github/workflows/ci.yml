@@ -177,3 +177,12 @@ jobs:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+  vk-consistency:
+    name: vk-consistency
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+    - name: Verify vk.json matches contract fixtures
+      run: bash .github/scripts/check-vk-consistency.sh
